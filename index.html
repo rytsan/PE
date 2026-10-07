@@ -1477,6 +1477,17 @@
             .anim-ctrl, .ex-step-btn { display: none !important; }
             .ex-steps > li.hid, .ex-ans.hid { display: block !important; }
         }
+
+        .anim-box.ex-fig { margin: .4rem 0 1rem; border-color: #bbf7d0; border-top-color: #15803d; }
+        .anim-box.ex-fig .anim-title { background: #f0fdf4; color: #14532d; }
+        .anim-box.ex-fig .anim-tag { background: #15803d; }
+        .anim-box.ex-fig .anim-seg { border-color: #bbf7d0; }
+        .anim-box.ex-fig .anim-seg button { color: #166534; border-color: #bbf7d0; }
+        .anim-box.ex-fig .anim-seg button.on { background: #15803d; color: #fff; }
+        .anim-box.ex-fig .anim-btn.anim-play { background: #15803d; border-color: #15803d; }
+        .anim-box.ex-fig .anim-read { background: #fbfefc; }
+        .fig-step { display: inline-block; background: #dcfce7; color: #166534; font-size: .72rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; margin-right: .35rem; }
+        .ex-steps > li.fig-cur { background: #f0fdf4; border-radius: 8px; box-shadow: 0 0 0 2px #86efac; transition: background .3s, box-shadow .3s; }
     </style>
 </head>
 <body>
@@ -5243,7 +5254,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
         // Depois do texto de cada <h3> numerado: fórmula explicada (SUBEX_DEEP), exemplo resolvido (SUBEX_EXAMPLES) e exercício (SUBEX).
         function withSubex(html) {
             return html.replace(/<h3>\s*(\d+\.\d+)[\s\S]*?(?=<h3>|$)/g, (seg, num) =>
-                seg + animShell(num) + (SUBEX_DEEP[num] || '') + (SUBEX_EXAMPLES[num] || '') + (SUBEX[num] ? `<div class="exercise-item dyn-box" id="dyn_${subId(num)}"></div>` : ''));
+                seg + animShell(num) + (SUBEX_DEEP[num] || '') + exWithFig(num, SUBEX_EXAMPLES[num]) + (SUBEX[num] ? `<div class="exercise-item dyn-box" id="dyn_${subId(num)}"></div>` : ''));
         }
         function answerText(g) { return g.mc ? g.opts[0] : `${fx(g.a, g.d)} ${g.u}`; }
         function newDyn(key) {
@@ -6978,13 +6989,668 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
             '9.5': { t: 'Capacidade: Cp e Cpk', w: 'cap', h: 240 },
             '9.9': { t: 'Regras de sensibilidade (Western Electric)', w: 'spc', h: 260, o: { rules: true } }
         };
-        const animShell = key => ANIM[key] ? `<div class="anim-box" data-anim="${key}"><div class="anim-title"><span class="anim-tag">Animação</span>${ANIM[key].t}</div><div class="anim-stage"><canvas></canvas></div><div class="anim-ctrl"></div><div class="anim-read"></div></div>` : '';
+        const animShell = key => ANIM[key] ? `<div class="anim-box${key.startsWith('ex:') ? ' ex-fig' : ''}" data-anim="${key}"><div class="anim-title"><span class="anim-tag">Animação</span>${ANIM[key].t}</div><div class="anim-stage"><canvas></canvas></div><div class="anim-ctrl"></div><div class="anim-read"></div></div>` : '';
+
+
+        // ================= EXEMPLOS ANIMADOS =================
+        // Cada exemplo resolvido ganha um gráfico com uma etapa por passo da resolução.
+        // Spec: { k: tipo, ...dados, st: [{ c: legenda do passo, ...mudanças }] }.
+        // A etapa i herda tudo das anteriores (Object.assign), então cada passo só descreve o que muda;
+        // um passo pode até trocar o tipo de gráfico (k). Valores numéricos deslizam até o alvo (approach).
+        const FIGR = {};
+        const niceTicks = (a, b, max = 7) => {
+            const span = b - a, raw = span / max, p = 10 ** Math.floor(Math.log10(raw)), st = [1, 2, 2.5, 5, 10].map(m => m * p).find(s => span / s <= max);
+            const d = Math.max(0, -Math.floor(Math.log10(st) + 1e-9) + (st / p === 2.5 ? 1 : 0)), r = [];
+            for (let v = Math.ceil(a / st - 1e-9) * st; v <= b + 1e-9; v += st) r.push(+v.toFixed(d));
+            return { r, d };
+        };
+        function figBig(S, s) {
+            if (!s) return;
+            const g = S.g; g.font = '700 13px Inter, sans-serif'; const w = g.measureText(s).width + 18;
+            rrect(g, S.W - w - 6, 4, w, 24, 12, 'rgba(255,255,255,.92)', AC.violet); txt(g, s, S.W - w / 2 - 6, 20, AC.violet, 'center', '700 13px Inter, sans-serif');
+        }
+        AW.fig = (S, F) => {
+            const n = F.st.length, ex = S.box.closest('.example-box'), lis = ex ? [...ex.querySelectorAll('.ex-steps > li')] : [], mem = {};
+            let k = 0, since = 0, clock = 0, dtc = 0;
+            const A = (key, v, init) => mem[key] = approach(mem[key] ?? init ?? v, v, dtc, 6);
+            const go = i => { if (i === k) return; k = i; since = 0; clock = 0; seg.set(k); lis.forEach((li, j) => li.classList.toggle('fig-cur', j === k)); };
+            const seg = S.seg(F.st.map((_, i) => 'Passo ' + (i + 1)), 0, i => { S.setPlay(false); go(i); });
+            S.playBtn();
+            return dt => {
+                dtc = dt;
+                if (ex && ex.classList.contains('stepping')) { const t = clamp(ex._k - 1, 0, n - 1); if (t !== k) { S.setPlay(false); go(t); } }
+                if (S.play) { clock += dt; if (clock > (F.dur || 4.5)) go((k + 1) % n); }
+                since += dt;
+                let j0 = 0; for (let j = 0; j <= k; j++) if (F.st[j].k) j0 = j;
+                const st = Object.assign({}, F, ...F.st.slice(j0, k + 1));
+                FIGR[st.k](S, st, A, since, dt, mem);
+                figBig(S, F.st[k].big);
+                S.read(`<span class="fig-step">Passo ${k + 1} de ${n}</span> ${F.st[k].c}`, true);
+            };
+        };
+        const colOf = (st, i, def = AC.blue) => Array.isArray(st.col) ? st.col[i] : st.col || def;
+
+        // Barras: x (rótulos), v (alturas), col, hl (índices em destaque), d (casas; null oculta), vl (rótulos próprios),
+        // mark [[posição, texto, cor]], band [a, b, cor], hline [[y, texto, cor]], base (início das barras), yl (título)
+        FIGR.bars = (S, st, A) => {
+            const { g } = S, m = st.x.length, v = st.v, base = st.base ?? 0;
+            const y0 = A('ymin' + m, st.ymin ?? Math.min(base, ...v)), y1 = A('ymax' + m, st.ymax ?? Math.max(...v) * 1.22);
+            const P = plotFrame(S, -.6, m - .4, y0, y1, { t: 30, l: 16, r: 16 });
+            if (st.band) { const a = A('ba', st.band[0]), b = A('bb', st.band[1]); g.fillStyle = rgba(st.band[2] || AC.violet, .12); g.fillRect(P.X(a), P.top, P.X(b) - P.X(a), P.bot - P.top); }
+            const w = Math.min(64, (P.X(1) - P.X(0)) * .72), skip = P.X(1) - P.X(0) < 26 ? 2 : 1;
+            g.save(); g.beginPath(); g.rect(0, P.top - 26, S.W, P.bot - P.top + 26); g.clip();
+            v.forEach((y, i) => {
+                const h = A(`v${m}_${i}`, y, base), c = colOf(st, i), al = st.hl && !st.hl.includes(i) ? .2 : .85;
+                const ya = P.Y(base), yb = P.Y(h);
+                g.fillStyle = rgba(c, al); g.fillRect(P.X(i) - w / 2, Math.min(ya, yb), w, Math.abs(yb - ya));
+                const lab = st.vl ? st.vl[i] : st.d === null ? '' : (+h).toFixed(st.d ?? 3);
+                if (lab !== '' && lab != null) txt(g, lab, P.X(i), h >= base ? yb - 5 : yb + 13, al < .5 ? AC.gray : c, 'center', '600 11px Inter, sans-serif');
+            });
+            g.restore();
+            g.strokeStyle = AC.axis; g.lineWidth = 1; g.beginPath(); g.moveTo(P.left, P.Y(Math.max(base, y0)) + .5); g.lineTo(P.right, P.Y(Math.max(base, y0)) + .5); g.stroke();
+            g.font = '11px Inter, sans-serif';
+            st.x.forEach((l, i) => { if (i % skip) return; const sp = (P.X(1) - P.X(0)) * skip - 4, sp2 = l.indexOf(' ', l.length / 2 - 2);
+                if (g.measureText(l).width > sp && sp2 > 0) { txt(g, l.slice(0, sp2), P.X(i), P.bot + 13, AC.muted, 'center', '10px Inter, sans-serif'); txt(g, l.slice(sp2 + 1), P.X(i), P.bot + 24, AC.muted, 'center', '10px Inter, sans-serif'); }
+                else txt(g, l, P.X(i), P.bot + 16, AC.muted, 'center', '11px Inter, sans-serif'); });
+            (st.hline || []).forEach(([y, l, c]) => { g.save(); g.setLineDash([5, 4]); g.strokeStyle = c || AC.red; g.beginPath(); g.moveTo(P.left, P.Y(y)); g.lineTo(P.right, P.Y(y)); g.stroke(); g.restore(); txt(g, l, P.left + 4, P.Y(y) - 4, c || AC.red, 'left', '600 11px Inter, sans-serif'); });
+            (st.mark || []).forEach(([x, l, c], j) => vline(S, P, A('mk' + j, x), c || AC.green, [], l));
+            if (st.yl) txt(g, st.yl, 8, 16, AC.text, 'left', '700 12px Inter, sans-serif');
+        };
+
+        // Barras horizontais empilhadas: rows [[rótulo, [[valor, cor, texto], ...]]], max, norm (cada linha vira 100%)
+        FIGR.stack = (S, st, A) => {
+            const { g, W, H } = S, rows = st.rows, L = Math.min(st.lw ?? 120, W * .32), R = W - 14, top = 36;
+            const rh = Math.min(30, (H - top - 6) / rows.length - 22), max = st.max ?? Math.max(...rows.map(r => sum(r[1].map(s => s[0]))));
+            rows.forEach(([lab, segs], r) => {
+                const y = top + r * (rh + 22), tot = st.norm ? sum(segs.map(s => s[0])) : max;
+                txt(g, lab, L - 8, y + rh / 2 + 4, AC.text, 'right', '600 12px Inter, sans-serif');
+                let x = L;
+                segs.forEach(([val, col, t], j) => {
+                    const w = A(`s${rows.length}_${r}_${j}`, (R - L) * val / tot, 0);
+                    g.fillStyle = rgba(col, .8); g.fillRect(x, y, Math.max(0, w - 1), rh);
+                    if (t) { g.font = '600 11px Inter, sans-serif'; const tw = g.measureText(t).width; if (tw + 8 < w) txt(g, t, x + w / 2, y + rh / 2 + 4, '#fff', 'center', '600 11px Inter, sans-serif'); else txt(g, t, x + 2, y + rh + 13, col, 'left', '600 11px Inter, sans-serif'); }
+                    x += w;
+                });
+            });
+            if (st.yl) txt(g, st.yl, 8, 16, AC.text, 'left', '700 12px Inter, sans-serif');
+        };
+
+        // Tabela de contagens: rows, cols, M, hl [[r, c, cor]], den [[r, c]] (contorno = denominador), frac (texto da conta)
+        FIGR.table = (S, st, A, since) => {
+            const { g, W, H } = S, nr = st.rows.length, nc = st.cols.length;
+            const cw = Math.min(96, (W - 20) / (nc + 1)), ch = Math.min(34, (H - 90) / (nr + 1)), x0 = (W - cw * (nc + 1)) / 2, y0 = 32, f = ease(since / .5);
+            st.cols.forEach((c, j) => txt(g, c, x0 + cw * (j + 1.5), y0 + ch / 2 + 4, AC.muted, 'center', '700 11px Inter, sans-serif'));
+            st.rows.forEach((r, i) => {
+                txt(g, r, x0 + cw / 2, y0 + ch * (i + 1.5) + 4, AC.muted, 'center', '700 11px Inter, sans-serif');
+                st.M[i].forEach((v, j) => {
+                    const x = x0 + cw * (j + 1), y = y0 + ch * (i + 1), h = (st.hl || []).find(q => q[0] === i && q[1] === j);
+                    rrect(g, x + 2, y + 2, cw - 4, ch - 4, 6, h ? rgba(h[2], .18 + .3 * f) : '#f8fafc', null);
+                    if ((st.den || []).some(q => q[0] === i && q[1] === j)) { g.save(); g.globalAlpha = f; rrect(g, x + 2, y + 2, cw - 4, ch - 4, 6, null, AC.blue); g.restore(); }
+                    txt(g, v, x + cw / 2, y + ch / 2 + 5, h ? h[2] : AC.text, 'center', (h ? '700 ' : '500 ') + '13px Inter, sans-serif');
+                });
+            });
+            if (st.frac) { g.globalAlpha = f; txt(g, st.frac, W / 2, y0 + ch * (nr + 1) + 30, AC.text, 'center', '700 15px Inter, sans-serif'); g.globalAlpha = 1; }
+        };
+
+        // Árvore: root, br [{l, p, ch: [{l, p}]}], hl ['i' ou 'i.j'], leaf (mostra produto), lt {'i.j': texto}, pl (mostra p nos ramos)
+        FIGR.tree = (S, st, A, since) => {
+            const { g, W, H } = S, br = st.br, deep = br.some(b => b.ch), f = ease(since / .6);
+            const leaves = br.reduce((s, b) => s + (b.ch ? b.ch.length : 1), 0), narrow = W < 560, rx = 30, mx = deep ? W * (narrow ? .3 : .34) : W * .55, lx = W * (narrow ? .56 : .64);
+            const gap = (H - 40) / leaves; let li = 0;
+            const node = (x, y, l, on) => { g.font = '700 11px Inter, sans-serif'; const w = Math.max(28, g.measureText(l).width + 12); rrect(g, x - w / 2, y - 11, w, 22, 6, '#fff', on ? AC.orange : AC.axis); txt(g, l, x, y + 4, on ? AC.orange : AC.text, 'center', '700 11px Inter, sans-serif'); };
+            const edge = (x1, y1, x2, y2, on, p) => {
+                g.strokeStyle = on ? rgba(AC.orange, .35 + .65 * f) : '#cbd5e1'; g.lineWidth = on ? 3.5 : 1.5; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+                if (st.pl !== false && p != null) { const mx2 = (x1 + x2) / 2, my2 = (y1 + y2) / 2; rrect(g, mx2 - 18, my2 - 9, 36, 18, 9, '#fff', null); txt(g, p, mx2, my2 + 4, on ? AC.orange : AC.muted, 'center', '600 11px Inter, sans-serif'); }
+            };
+            const hl = st.hl || [], ry = 32 + (H - 40) / 2;
+            const pos = br.map(b => { const n = b.ch ? b.ch.length : 1, y = 32 + gap * (li + n / 2); const ys = b.ch ? b.ch.map((_, j) => 32 + gap * (li + j + .5)) : []; li += n; return { y, ys }; });
+            br.forEach((b, i) => {
+                const on = hl.includes('' + i) || hl.some(h => h.startsWith(i + '.'));
+                edge(rx, ry, mx, pos[i].y, on, b.p);
+                (b.ch || []).forEach((c, j) => {
+                    const key = i + '.' + j, on2 = hl.includes(key), y = pos[i].ys[j];
+                    edge(mx + 18, pos[i].y, lx, y, on2, c.p); node(lx, y, c.l, on2);
+                    let t = st.lt && st.lt[key] !== undefined ? st.lt[key] : st.leaf && b.p != null ? `${b.p} × ${c.p} = ${(b.p * c.p).toFixed(st.d ?? 3)}` : '';
+                    if (narrow && t.includes('= ')) t = t.slice(t.lastIndexOf('= ') + 2);
+                    if (t) txt(g, t, lx + 24, y + 4, on2 ? AC.orange : AC.text, 'left', (on2 ? '700 ' : '500 ') + '11px Inter, sans-serif');
+                });
+                node(mx, pos[i].y, b.l, on);
+                if (!b.ch && st.lt && st.lt['' + i]) txt(g, st.lt['' + i], mx + 30, pos[i].y + 4, on ? AC.orange : AC.text, 'left', '600 11px Inter, sans-serif');
+            });
+            node(rx, ry, st.root || '•', false);
+        };
+
+        // Venn de 2 conjuntos: names, r {a, b, ab, n} (probabilidades das 4 regiões), hl (regiões preenchidas), show (regiões com número)
+        FIGR.venn2 = (S, st, A, since) => {
+            const { g, W, H } = S, f = ease(since / .6);
+            const r = Math.min((H - 40) * .4, W * .2), cx = W / 2, cy = 30 + (H - 36) / 2, d = r * .62, ax = cx - d, bx = cx + d;
+            const PA = new Path2D(), PB = new Path2D(), R = new Path2D();
+            PA.arc(ax, cy, r, 0, Math.PI * 2); PB.arc(bx, cy, r, 0, Math.PI * 2); R.rect(8, 32, W - 16, H - 38);
+            const RA = new Path2D(); RA.addPath(R); RA.addPath(PA); const RB = new Path2D(); RB.addPath(R); RB.addPath(PB);
+            const fill = { a: () => { g.save(); g.clip(PA); g.fill(RB, 'evenodd'); g.restore(); }, b: () => { g.save(); g.clip(PB); g.fill(RA, 'evenodd'); g.restore(); }, ab: () => { g.save(); g.clip(PA); g.fill(PB); g.restore(); }, n: () => { g.save(); g.clip(RB, 'evenodd'); g.fill(RA, 'evenodd'); g.restore(); } };
+            const fc = { a: AC.blue, b: AC.orange, ab: AC.violet, n: AC.teal };
+            (st.hl || []).forEach(k => { g.fillStyle = rgba(fc[k], .3 * f); fill[k](); });
+            g.lineWidth = 2; g.strokeStyle = AC.axis; g.stroke(R); g.strokeStyle = AC.blue; g.stroke(PA); g.strokeStyle = AC.orange; g.stroke(PB);
+            txt(g, st.names[0], ax - r * .3, cy - r - 6, AC.blue, 'center', '700 12px Inter, sans-serif'); txt(g, st.names[1], bx + r * .3, cy - r - 6, AC.orange, 'center', '700 12px Inter, sans-serif');
+            const at = { a: [ax - r * .5, cy], b: [bx + r * .5, cy], ab: [cx, cy], n: [W - 40, H - 16] };
+            (st.show || []).forEach(k => txt(g, (+st.r[k]).toFixed(st.d ?? 2), at[k][0], at[k][1] + 5, fc[k], 'center', '700 15px Inter, sans-serif'));
+            txt(g, 'Ω', 18, 50, AC.muted, 'left', '600 14px Inter, sans-serif');
+        };
+
+        // Matriz de ícones: n, cols, groups [[quantidade, cor, legenda]] (o resto fica cinza)
+        FIGR.icons = (S, st, A, since) => {
+            const { g, W, H } = S, n = st.n, cols = st.cols, rows = Math.ceil(n / cols);
+            const cell = Math.min((W - 20) / cols, (H - 70) / rows, 34), x0 = (W - cell * cols) / 2, y0 = 34, pop = 1 + .25 * (1 - ease(since / .4));
+            const cum = []; let s = 0; (st.groups || []).forEach(q => { s += q[0]; cum.push(s); });
+            for (let i = 0; i < n; i++) {
+                const gi = cum.findIndex(c => i < c), col = gi < 0 ? '#cbd5e1' : st.groups[gi][1];
+                dot(g, x0 + (i % cols + .5) * cell, y0 + (Math.floor(i / cols) + .5) * cell, cell * .36 * (gi < 0 ? 1 : pop), col);
+            }
+            let lx = 12, ly = y0 + rows * cell + 22;
+            (st.groups || []).forEach(([c, col, l]) => { if (!l) return; const t = `${l} (${c})`; g.font = '600 11px Inter, sans-serif'; const tw = g.measureText(t).width; if (lx > 12 && lx + tw + 20 > W) { lx = 12; ly += 18; } dot(g, lx + 5, ly - 4, 5, col); txt(g, t, lx + 14, ly, AC.text, 'left', '600 11px Inter, sans-serif'); lx += tw + 30; });
+        };
+
+        // Curva contínua: f, x0, x1, ymax, sh [[a, b, cor, 'f2'?]], vl [[x, texto, cor]], f2 [função, cor, legenda],
+        // hl [[y, texto, cor]], pts [[x, y, texto, cor]], seg [[x1, y1, x2, y2, cor, texto]], bars {xs, ps, upto}
+        FIGR.curve = (S, st, A, since, dt, mem) => {
+            const { g } = S;
+            if (mem.cf !== st.f) { mem.pf = mem.cf || st.f; mem.cf = st.f; mem.bl = 0; }
+            mem.bl = Math.min(1, (mem.bl ?? 1) + dt * 1.4);
+            const e = ease(mem.bl), pf = mem.pf, cf = st.f, f = x => lerp(pf(x), cf(x), e);
+            const x0 = A('x0', st.x0), x1 = A('x1', st.x1), P = plotFrame(S, x0, x1, 0, A('ym', st.ymax), { t: 34, l: 16, r: 16 });
+            const f2 = st.f2 && st.f2[0];
+            g.save(); g.beginPath(); g.rect(P.left, P.top - 30, P.right - P.left, P.bot - P.top + 30); g.clip();
+            if (st.bars) {
+                const { xs, ps, upto } = st.bars, w = P.X(1) - P.X(0);
+                xs.forEach((x, i) => { g.fillStyle = rgba(upto != null && x <= upto ? AC.blue : AC.gray, upto != null && x <= upto ? .55 : .35); g.fillRect(P.X(x - .5) + .5, P.Y(ps[i]), w - 1, P.Y(0) - P.Y(ps[i])); });
+            }
+            (st.sh || []).forEach(([a, b, c, w], i) => curve(S, P, w === 'f2' ? f2 : f, A('sa' + i, Math.max(a, x0)), A('sb' + i, Math.min(b, x1)), null, rgba(c || AC.blue, .35)));
+            if (f2) curve(S, P, f2, x0, x1, st.f2[1] || AC.orange, null, 2);
+            curve(S, P, f, x0, x1, AC.blue, null, 2.5);
+            (st.seg || []).forEach(([a, b, c, d, col, t]) => { g.save(); g.setLineDash([4, 3]); g.strokeStyle = col || AC.orange; g.lineWidth = 2; g.beginPath(); g.moveTo(P.X(a), P.Y(b)); g.lineTo(P.X(c), P.Y(d)); g.stroke(); g.restore(); if (t) txt(g, t, P.X((a + c) / 2) + 6, P.Y((b + d) / 2) + 4, col || AC.orange, 'left', '700 11px Inter, sans-serif'); });
+            g.restore();
+            (st.hl || []).forEach(([y, l, c]) => { g.save(); g.setLineDash([5, 4]); g.strokeStyle = c || AC.red; g.beginPath(); g.moveTo(P.left, P.Y(y)); g.lineTo(P.right, P.Y(y)); g.stroke(); g.restore(); txt(g, l, P.left + 4, P.Y(y) - 4, c || AC.red, 'left', '600 11px Inter, sans-serif'); });
+            (st.vl || []).forEach(([x, l, c], i) => { const xx = A('vl' + i, x); if (xx >= x0 && xx <= x1) { g.save(); g.setLineDash([4, 4]); g.strokeStyle = c || AC.red; g.lineWidth = 1.5; g.beginPath(); g.moveTo(P.X(xx), P.top - (i % 2 ? 2 : 14)); g.lineTo(P.X(xx), P.bot); g.stroke(); g.restore(); g.font = '600 11px Inter, sans-serif'; const hw = g.measureText(l).width / 2 + 2; txt(g, l, clamp(P.X(xx), hw, S.W - hw), P.top - (i % 2 ? 6 : 18), c || AC.red, 'center', '600 11px Inter, sans-serif'); } });
+            (st.pts || []).forEach(([x, y, l, c]) => { dot(g, P.X(x), P.Y(y), 5, c || AC.red, '#fff', 1.5); if (l) txt(g, l, P.X(x) + 8, P.Y(y) - 8, c || AC.red, 'left', '700 11px Inter, sans-serif'); });
+            if (st.f2 && st.f2[2]) txt(g, st.f2[2], P.right - 4, P.top + 16, st.f2[1] || AC.orange, 'right', '600 11px Inter, sans-serif');
+            if (st.yl) txt(g, st.yl, P.left + 4, P.top + 4, AC.blue, 'left', '600 11px Inter, sans-serif');
+            const tk = st.ticks ? { r: st.ticks, d: st.td ?? 2 } : niceTicks(x0, x1, S.W < 500 ? 5 : 8);
+            xAxis(S, P, tk.r, v => st.ticks ? v : (+v).toFixed(tk.d));
+        };
+
+        // Gráfico de distribuição acumulada discreta: p (FP em x = 0, 1, ...), q [[p, texto]], pt [[x, texto]], jump (índice)
+        FIGR.cdf = (S, st, A, since) => {
+            const { g, H } = S, p = st.p, m = p.length, F = cum(p), f = ease(since / .6);
+            const P1 = plotFrame({ ...S, H: H * .42 }, -.8, m - .2, 0, Math.max(...p) * 1.3, { t: 26, b: 4, l: 40 }), P2 = plotFrame(S, -.8, m - .2, 0, 1.12, { t: H * .46, l: 40 });
+            p.forEach((v, i) => { const w = P1.X(.3) - P1.X(0); g.fillStyle = rgba(AC.blue, .75); g.fillRect(P1.X(i) - w, P1.Y(v), 2 * w, P1.Y(0) - P1.Y(v)); txt(g, v, P1.X(i), P1.Y(v) - 4, AC.blue, 'center', '600 10px Inter, sans-serif'); });
+            txt(g, 'p(x)', 6, 14, AC.blue, 'left', '600 11px Inter, sans-serif'); txt(g, 'F(x)', 6, H * .46 + 6, AC.green, 'left', '600 11px Inter, sans-serif');
+            [.5, 1].forEach(v => { g.strokeStyle = AC.grid; g.lineWidth = 1; g.beginPath(); g.moveTo(P2.left, P2.Y(v)); g.lineTo(P2.right, P2.Y(v)); g.stroke(); txt(g, v, P2.left - 4, P2.Y(v) + 4, AC.muted, 'right', '10px Inter, sans-serif'); });
+            g.lineWidth = 2.5; g.strokeStyle = AC.green;
+            for (let i = -1; i < m; i++) { const y = i < 0 ? 0 : F[i]; g.beginPath(); g.moveTo(P2.X(Math.max(i, -.8)), P2.Y(y)); g.lineTo(P2.X(Math.min(i + 1, m - .2)), P2.Y(y)); g.stroke(); if (i >= 0) { dot(g, P2.X(i), P2.Y(F[i]), 4, AC.green); dot(g, P2.X(i), P2.Y(i ? F[i - 1] : 0), 3.5, '#fff', AC.green, 1.5); txt(g, F[i], P2.X(i) + 6, P2.Y(F[i]) - 6, AC.green, 'left', '600 10px Inter, sans-serif'); } }
+            xAxis(S, P2, range(0, m - 1));
+            g.globalAlpha = f;
+            (st.q || []).forEach(([q, l]) => {
+                const x = F.findIndex(v => v >= q - 1e-9); g.save(); g.setLineDash([4, 4]); g.strokeStyle = AC.violet; g.lineWidth = 1.5;
+                g.beginPath(); g.moveTo(P2.left, P2.Y(q)); g.lineTo(P2.X(x), P2.Y(q)); g.lineTo(P2.X(x), P2.bot); g.stroke(); g.restore();
+                txt(g, `${q}`, P2.left + 2, P2.Y(q) - 4, AC.violet, 'left', '600 10px Inter, sans-serif'); if (l) txt(g, l, P2.X(x) + 4, P2.Y(q) + 14, AC.violet, 'left', '700 11px Inter, sans-serif');
+            });
+            (st.pt || []).forEach(([x, l, c]) => { const y = x < 0 ? 0 : F[Math.min(m - 1, Math.floor(x + 1e-9))]; dot(g, P2.X(x), P2.Y(y), 5.5, c || AC.red); if (l) txt(g, l, P2.X(x), P2.Y(y) + (c ? 20 : -12), c || AC.red, 'center', '700 11px Inter, sans-serif'); });
+            if (st.jump != null) { const j = st.jump, a = j ? F[j - 1] : 0, b = F[j]; g.strokeStyle = AC.orange; g.lineWidth = 3; g.beginPath(); g.moveTo(P2.X(j) - 8, P2.Y(a)); g.lineTo(P2.X(j) - 8, P2.Y(b)); g.stroke(); txt(g, `salto ${(b - a).toFixed(2)}`, P2.X(j) - 12, P2.Y((a + b) / 2) + 4, AC.orange, 'right', '700 11px Inter, sans-serif'); }
+            g.globalAlpha = 1;
+        };
+
+        // Série no tempo (gráficos de controle): y, lines [[y, texto, cor]], hl (índices em destaque), ymin, ymax, yl
+        FIGR.series = (S, st, A, since) => {
+            const { g } = S, y = st.y, n = y.length, P = plotFrame(S, .3, n + .7, A('y0', st.ymin), A('y1', st.ymax), { t: 30, l: 50, r: 46 });
+            (st.lines || []).forEach(([v, l, c]) => { g.strokeStyle = c || AC.red; g.lineWidth = 1.5; g.beginPath(); g.moveTo(P.left, P.Y(v)); g.lineTo(P.right, P.Y(v)); g.stroke(); txt(g, l, P.right + 4, P.Y(v) + 4, c || AC.red, 'left', '600 11px Inter, sans-serif'); txt(g, v, P.left - 4, P.Y(v) + 4, c || AC.red, 'right', '10px Inter, sans-serif'); });
+            const shown = Math.min(n, since * 5 + 1);
+            g.strokeStyle = AC.axis; g.lineWidth = 1.2; g.beginPath();
+            for (let i = 0; i < shown; i++) { const xx = P.X(i + 1), yy = P.Y(y[i]); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); } g.stroke();
+            for (let i = 0; i < shown; i++) { const on = (st.hl || []).includes(i); dot(g, P.X(i + 1), P.Y(y[i]), on ? 6 : 4.5, on ? (st.hc || AC.red) : AC.blue); if (st.lab !== false) txt(g, y[i], P.X(i + 1), P.Y(y[i]) - 10, on ? (st.hc || AC.red) : AC.muted, 'center', '10px Inter, sans-serif'); }
+            xAxis(S, P, range(1, n));
+            if (st.yl) txt(g, st.yl, 8, 16, AC.text, 'left', '700 12px Inter, sans-serif');
+        };
+
+        // Dados em uma reta: sets [[rótulo, dados, cor]] ou data, x0, x1, marks [[x, texto, cor]], box [Q1, Md, Q3], wh [lo, hi], out (índices), dev (média para desenhar desvios), tol [a, b]
+        FIGR.dots = (S, st, A, since) => {
+            const { g } = S, sets = st.sets || [['', st.data, AC.blue]], P = plotFrame(S, A('x0', st.x0), A('x1', st.x1), 0, 1, { t: 36, l: st.sets ? 30 : 16 }), f = ease(since / .6);
+            const rowY = r => P.top + (P.bot - P.top) * (r + .6) / (sets.length + .4);
+            if (st.tol) { g.fillStyle = rgba(AC.green, .08); g.fillRect(P.X(st.tol[0]), P.top, P.X(st.tol[1]) - P.X(st.tol[0]), P.bot - P.top); [0, 1].forEach(i => vline(S, P, st.tol[i], AC.red, [2, 3], i ? 'LSE' : 'LIE')); }
+            sets.forEach(([lab, data, col], r) => {
+                const y = rowY(r), seen = {};
+                if (lab) txt(g, lab, 8, y + 4, col, 'left', '700 12px Inter, sans-serif');
+                if (st.box && r === 0) {
+                    const [q1, md, q3] = st.box, bh = 26, yb = y + 30;
+                    g.globalAlpha = f; g.fillStyle = rgba(AC.blue, .12); g.fillRect(P.X(q1), yb - bh / 2, P.X(q3) - P.X(q1), bh); g.strokeStyle = AC.blue; g.lineWidth = 2; g.strokeRect(P.X(q1), yb - bh / 2, P.X(q3) - P.X(q1), bh);
+                    g.beginPath(); g.moveTo(P.X(md), yb - bh / 2); g.lineTo(P.X(md), yb + bh / 2); g.stroke();
+                    txt(g, 'Q₁ ' + q1, P.X(q1), yb + bh / 2 + 13, AC.blue, 'center', '600 10px Inter, sans-serif'); txt(g, 'Q₃ ' + q3, P.X(q3), yb + bh / 2 + 13, AC.blue, 'center', '600 10px Inter, sans-serif');
+                    if (st.wh) { g.strokeStyle = AC.text; [[st.wh[0], q1], [q3, st.wh[1]]].forEach(([a, b]) => { g.beginPath(); g.moveTo(P.X(a), yb); g.lineTo(P.X(b), yb); g.stroke(); }); [st.wh[0], st.wh[1]].forEach(v => { g.beginPath(); g.moveTo(P.X(v), yb - 8); g.lineTo(P.X(v), yb + 8); g.stroke(); }); }
+                    g.globalAlpha = 1;
+                }
+                const mean = st.dev != null ? st.dev : null;
+                data.forEach((v, i) => {
+                    const rep = seen[v] = (seen[v] || 0) + 1, yy = y - (rep - 1) * 13, out = (st.out || []).includes(i) && r === 0;
+                    if (mean != null) { g.globalAlpha = f; g.strokeStyle = v >= mean ? AC.orange : AC.violet; g.lineWidth = 2; g.beginPath(); g.moveTo(P.X(mean), yy); g.lineTo(P.X(v), yy); g.stroke(); g.globalAlpha = 1; }
+                    dot(g, P.X(v), yy, 6, out ? AC.red : rgba(col, .85), out ? '#fff' : null, 1.5);
+                });
+            });
+            (st.marks || []).forEach(([x, l, c], i) => { const xx = A('m' + i, x); g.save(); g.setLineDash([5, 4]); g.strokeStyle = c || AC.orange; g.lineWidth = 2; g.beginPath(); g.moveTo(P.X(xx), P.top - (i % 2 ? 4 : 16)); g.lineTo(P.X(xx), P.bot); g.stroke(); g.restore(); txt(g, l, P.X(xx), P.top - (i % 2 ? 8 : 20), c || AC.orange, 'center', '700 11px Inter, sans-serif'); });
+            const tk = niceTicks(P.x0, P.x1, S.W < 500 ? 6 : 10); xAxis(S, P, tk.r, v => (+v).toFixed(tk.d));
+        };
+
+        // Intervalos: rows [[rótulo, lo, hi, cor]], marks [[x, texto, cor]], x0, x1
+        FIGR.ints = (S, st, A) => {
+            const { g } = S, rows = st.rows || [], P = plotFrame(S, A('x0', st.x0), A('x1', st.x1), 0, 1, { t: 36, l: 16 }), rh = Math.min(42, (P.bot - P.top) / Math.max(rows.length, 1));
+            (st.marks || []).forEach(([x, l, c], i) => vline(S, P, A('m' + i, x), c || AC.green, [], l));
+            rows.forEach(([l, lo, hi, c], i) => {
+                const y = P.top + 20 + i * rh, a = A('lo' + i, lo, (lo + hi) / 2), b = A('hi' + i, hi, (lo + hi) / 2), col = c || AC.blue;
+                g.strokeStyle = col; g.lineWidth = 4; g.beginPath(); g.moveTo(P.X(a), y); g.lineTo(P.X(b), y); g.stroke();
+                [a, b].forEach(v => { g.lineWidth = 2; g.beginPath(); g.moveTo(P.X(v), y - 7); g.lineTo(P.X(v), y + 7); g.stroke(); });
+                dot(g, P.X((lo + hi) / 2), y, 4, col);
+                g.font = '600 11px Inter, sans-serif';
+                if (P.X(b) + 12 + g.measureText(l).width < S.W) txt(g, l, P.X(b) + 8, y + 4, col, 'left', '600 11px Inter, sans-serif'); else txt(g, l, P.X((lo + hi) / 2), y - 10, col, 'center', '600 11px Inter, sans-serif');
+                if (hi > lo) { txt(g, (+lo).toFixed(st.d ?? 2), P.X(a), y + 20, col, 'center', '10px Inter, sans-serif'); txt(g, (+hi).toFixed(st.d ?? 2), P.X(b), y + 20, col, 'center', '10px Inter, sans-serif'); }
+            });
+            const tk = niceTicks(P.x0, P.x1, S.W < 500 ? 5 : 8); xAxis(S, P, tk.r, v => (+v).toFixed(tk.d));
+        };
+
+        // Distribuições usadas pelos gráficos dos exemplos
+        const dN = (m, s) => x => npdf(x, m, s);
+        const dU = (a, b) => x => x >= a && x <= b ? 1 / (b - a) : 0;
+        const dE = l => x => x >= 0 ? l * Math.exp(-l * x) : 0;
+        const dChi = k => x => x <= 0 ? 0 : Math.exp((k / 2 - 1) * Math.log(x) - x / 2 - (k / 2) * Math.LN2 - lnGamma(k / 2));
+        const dT = v => x => tpdf(x, v);
+        const C = AC;
+        const EXFIG = {
+            // ---------- Módulo 1 ----------
+            '1.1': { k: 'bars', x: ['CCC', 'CCN', 'CNC', 'NCC', 'CNN', 'NCN', 'NNC', 'NNN'], v: [1, 1, 1, 1, 1, 1, 1, 1], d: null, ymax: 1.3, col: C.gray, st: [
+                { c: RAW`Cada barra é um resultado possível: $2 \times 2 \times 2 = 8$ sequências. Barras iguais só representariam a realidade se as 8 fossem igualmente prováveis, o que ainda não sabemos.` },
+                { col: [C.gray, C.blue, C.blue, C.blue, C.orange, C.orange, C.orange, C.orange], c: RAW`Azul: resultados de $A$ (exatamente uma N). Laranja: resultados de $B$ (pelo menos duas N). Nenhuma barra tem as duas cores, então $A \cap B = \emptyset$.` },
+                { v: [.729, .081, .081, .081, .009, .009, .009, .001], d: 3, ymax: .85, hl: [1], c: RAW`Agora a altura é a probabilidade real. $CCN = 0.9 \times 0.9 \times 0.1 = 0.081$. Veja como $CCC$ domina: os resultados <strong>não</strong> são igualmente prováveis.` },
+                { hl: [1, 2, 3], big: 'P(A) = 3 × 0.081 = 0.243', c: RAW`$P(A)$ é a soma das três barras azuis. Contar casos daria $3/8 = 0.375$, bem longe do correto.` },
+                { hl: null, big: '0.729 + 0.243 + 0.028 = 1', c: RAW`Todas as barras juntas somam 1: cinza (0.729) + azul (0.243) + laranja (0.028). É a conferência final.` }] },
+            '1.2': { k: 'venn2', names: ['A (elétrica)', 'B (mecânica)'], r: { a: .2, b: .1, ab: .1, n: .6 }, st: [
+                { hl: ['ab'], show: ['ab'], big: 'P(A∩B) = 0.3 + 0.2 − 0.4 = 0.1', c: RAW`A lente roxa é o pedaço contado duas vezes em $P(A) + P(B)$. Como $P(A \cup B) = 0.4$, a sobra $0.3 + 0.2 - 0.4 = 0.1$ é exatamente essa lente.` },
+                { hl: ['n'], show: ['ab', 'n'], big: '1 − 0.4 = 0.6', c: RAW`A região verde-azulada é tudo de $\Omega$ fora dos dois círculos: nenhuma falha. É o complemento da união.` },
+                { hl: ['a', 'b'], show: ['ab', 'n', 'a', 'b'], c: RAW`O círculo azul se divide em lente (0.1) e "só A" (0.2). O laranja, em lente (0.1) e "só B" (0.1). Cada número é o círculo menos a lente.` },
+                { hl: ['a', 'b'], show: ['a', 'b'], big: '0.2 + 0.1 = 0.3', c: RAW`"Exatamente um tipo" é a soma das duas luas, sem a lente do meio.` },
+                { hl: ['a', 'b', 'ab', 'n'], show: ['a', 'b', 'ab', 'n'], big: 'soma das 4 regiões = 1', c: RAW`As quatro regiões não se sobrepõem e cobrem $\Omega$: $0.2 + 0.1 + 0.1 + 0.6 = 1$.` }] },
+            '1.3': { k: 'table', rows: ['X', 'Outros', 'Total'], cols: ['D', 'Boa', 'Total'], M: [[10, 40, 50], [10, 140, 150], [20, 180, 200]], st: [
+                { hl: [[0, 0, C.amber], [0, 2, C.amber], [2, 0, C.amber], [2, 2, C.amber]], frac: '50 − 10 = 40 · 20 − 10 = 10 · ...', c: RAW`Em âmbar, os números dados no enunciado. As outras células saem por subtração, porque cada linha e cada coluna têm que bater com o total.` },
+                { hl: [[0, 0, C.green], [0, 2, C.blue]], den: [[0, 0], [0, 1], [0, 2]], frac: 'P(D|X) = 10 / 50 = 0.20', c: RAW`"Dado X" apaga o resto da tabela: só a linha X (contorno azul) vale. Numerador: defeituosas dessa linha (verde). Denominador: total da linha (azul).` },
+                { hl: [[0, 0, C.green], [2, 0, C.blue]], den: [[0, 0], [1, 0], [2, 0]], frac: 'P(X|D) = 10 / 20 = 0.50', c: RAW`Agora a condição é "defeituosa": o universo vira a <strong>coluna</strong> D. Mesmo numerador (10), outro denominador (20).` },
+                { hl: [[0, 2, C.blue], [0, 0, C.green], [2, 2, C.amber]], den: [], frac: '(50/200) × (10/50) = 10/200 = 0.05', c: RAW`Regra do produto: "chance de ser de X" × "chance de defeito dentro de X". Na tabela, é simplesmente a célula 10 dividida pelo total geral 200.` },
+                { k: 'stack', rows: [['1ª retirada', [[8, C.green, '8 boas'], [2, C.red, '2 def.']]], ['2ª retirada', [[7, C.green, '7 boas'], [2, C.red, '2']]], ['3ª retirada', [[6, C.green, '6 boas'], [2, C.red, '2']]]], max: 10, big: '8/10 · 7/9 · 6/8 = 0.4667', c: RAW`Sem reposição, o lote encolhe: a cada peça boa retirada sobra uma boa a menos. As frações $8/10$, $7/9$, $6/8$ são a parte verde de cada barra.` }] },
+            '1.4': { k: 'bars', x: ['Independentes', 'Causa comum'], v: [.01, 0], d: 2, ymax: .08, col: [C.blue, C.red], st: [
+                { c: RAW`Com independência, $P(A \cap B) = 0.1 \times 0.1 = 0.01$: as duas bombas falham juntas em 1% das missões.` },
+                { v: [.01, .06], c: RAW`Com alimentação comum, $P(B|A) = 0.6$: a barra vermelha sobe para $0.1 \times 0.6 = 0.06$.` },
+                { v: [.01, .06], big: 'risco 6× maior', c: RAW`A barra vermelha é 6 vezes a azul. Supor independência quando ela não existe subestima o risco.` }] },
+            '1.5': { k: 'tree', root: 'peça', br: [{ l: 'A', p: .6, ch: [{ l: 'D', p: .01 }, { l: 'Dᶜ', p: .99 }] }, { l: 'B', p: .25, ch: [{ l: 'D', p: .03 }, { l: 'Dᶜ', p: .97 }] }, { l: 'C', p: .15, ch: [{ l: 'D', p: .06 }, { l: 'Dᶜ', p: .94 }] }], st: [
+                { hl: ['0', '1', '2'], c: RAW`Primeiro nível: de qual turno a peça veio. Os três ramos somam $0.60 + 0.25 + 0.15 = 1$: é uma partição.` },
+                { hl: ['0.0', '1.0', '2.0'], lt: { '0.0': '0.6 × 0.01 = 0.0060', '1.0': '0.25 × 0.03 = 0.0075', '2.0': '0.15 × 0.06 = 0.0090' }, c: RAW`Cada caminho até uma folha "D" é multiplicado ao longo dos ramos. São três maneiras diferentes de uma peça ser defeituosa.` },
+                { big: 'P(D) = 0.0225', c: RAW`$P(D)$ é a soma das três folhas destacadas: o Teorema da Probabilidade Total é "somar todos os caminhos que terminam em D".` },
+                { k: 'stack', rows: [['Produção', [[.6, C.blue, 'A 60%'], [.25, C.orange, 'B 25%'], [.15, C.violet, 'C 15%']]], ['Defeitos', [[.267, C.blue, 'A 26.7%'], [.333, C.orange, 'B 33.3%'], [.4, C.violet, 'C 40%']]]], max: 1, c: RAW`Comparando as barras: C faz só 15% da produção (roxo de cima), mas responde por 40% dos defeitos (roxo de baixo).` }] },
+            '1.6': { k: 'stack', norm: true, lw: 150, rows: [['Defeituosas: 100', [[95, C.red, '95 dão +'], [5, C.gray, '5 −']]], ['Boas: 9900', [[495, C.amber, '495 dão +'], [9405, C.gray, '9405 −']]]], st: [
+                { c: RAW`Em 10 000 peças: das 100 defeituosas, 95 acusam positivo (vermelho). Das 9 900 boas, 5% (495, âmbar) também acusam: falsos alarmes.` },
+                { rows: [['Defeituosas: 100', [[95, C.red, '95 +'], [5, C.gray, '5 −']]], ['Boas: 9900', [[495, C.amber, '495 +'], [9405, C.gray, '9405 −']]], ['Positivos: 590', [[95, C.red, '95'], [495, C.amber, '495 boas']]]], big: 'P(D|+) = 95/590 = 0.161', c: RAW`A última barra junta só os positivos. A fatia vermelha (defeitos reais) é pequena: $95/590 = 16\%$.` },
+                { big: '0.0095 / 0.059 = 0.161', c: RAW`A fórmula de Bayes faz a mesma conta com probabilidades: fatia vermelha ($0.95 \times 0.01$) dividida pela barra inteira de positivos ($P(+) = 0.059$).` },
+                { rows: [['Defeituosas: 1000', [[950, C.red, '950 +'], [50, C.gray, '']]], ['Boas: 9000', [[450, C.amber, '450 +'], [8550, C.gray, '8550 −']]], ['Positivos: 1400', [[950, C.red, '950'], [450, C.amber, '450']]]], big: 'P(D|+) = 950/1400 = 0.679', c: RAW`Com priori de 10%, há 10 vezes mais defeituosas e menos boas. A fatia vermelha dos positivos cresce para 68%.` },
+                { k: 'bars', x: ['Antes do ensaio', 'Após 1º +', 'Após 2º +'], v: [.01, .161, .785], d: 3, ymax: 1, col: [C.gray, C.orange, C.red], c: RAW`Cada positivo atualiza a crença: 1% vira 16.1%, e a posteriori 0.161 entra como priori do 2º ensaio, chegando a 78.5%.` }] },
+            '1.7': { k: 'bars', x: ['1 estação', 'Linha (3)', 'Bloco 2∥', 'Opção 1', 'Opção 2', '10 comp.'], v: [.95, .857, .8, .8, .8, .8], base: .8, ymin: .8, ymax: 1.02, d: 4, col: [C.gray, C.red, C.blue, C.green, C.teal, C.amber], hl: [0, 1], hline: [[1, 'R = 1', C.axis]], st: [
+                { c: RAW`Eixo começa em 0.8 para ampliar as diferenças. Cada estação tem 0.95, mas três em série caem para $0.95^3 = 0.857$: a confiabilidade é o produto.` },
+                { v: [.95, .857, .9975, .8, .8, .8], hl: [0, 1, 2], c: RAW`Duas estações em paralelo só falham juntas: $1 - 0.05^2 = 0.9975$. A barra azul quase encosta em 1.` },
+                { v: [.95, .857, .9975, .9925, .8, .8], hl: [1, 3], c: RAW`Opção 1: três blocos redundantes em série, $0.9975^3 = 0.9925$. Compare com a barra vermelha da linha original.` },
+                { v: [.95, .857, .9975, .9925, .9797, .8], hl: [3, 4], c: RAW`Opção 2: duplicar a linha inteira dá $1 - 0.143^2 = 0.9797$. Mesmo número de estações extras, resultado pior que a opção 1.` },
+                { v: [.95, .857, .9975, .9925, .9797, .904], hl: [5], c: RAW`Escala: dez componentes de 0.99 em série já caem para $0.99^{10} = 0.904$. Quanto mais longa a série, mais a redundância é necessária.` }] },
+            '1.8': { k: 'bars', x: ['1º dígito', '2º dígito', '3º dígito', '4º dígito'], v: [10, 9, 8, 7], d: 0, ymax: 12, col: C.blue, st: [
+                { big: '10 · 9 · 8 · 7 = 5040', c: RAW`Cada barra é o número de opções para uma posição do código. Sem repetir, cada posição tem uma opção a menos. A ordem importa: arranjo.` },
+                { k: 'icons', n: 56, cols: 14, groups: [[56, C.blue, 'comissões diferentes']], big: '336 listas ÷ 3! = 56', c: RAW`Cada ponto é uma comissão. As 336 listas ordenadas repetem cada grupo $3! = 6$ vezes, então restam 56 grupos.` },
+                { k: 'icons', n: 56, cols: 14, groups: [[6, C.green, 'Ana e Bruno juntos'], [50, '#cbd5e1', '']], big: '6/56 = 0.107', c: RAW`Fixando Ana e Bruno, a terceira vaga tem 6 opções: 6 pontos verdes entre 56.` },
+                { k: 'icons', n: 56, cols: 14, groups: [[36, C.blue, 'pelo menos um'], [20, C.red, 'nenhum dos dois']], big: '1 − 20/56 = 0.643', c: RAW`Mais fácil contar o contrário: comissões sem Ana e sem Bruno são $\binom{6}{3} = 20$ (vermelho). O resto, 36, tem pelo menos um.` }] },
+            '1.9': { k: 'table', rows: ['M1', 'M2', 'Total'], cols: ['Aprov.', 'Retrab.', 'Refugo', 'Total'], M: [[450, 30, 20, 500], [270, 20, 10, 300], [720, 50, 30, 800]], st: [
+                { hl: [[2, 2, C.green], [2, 3, C.blue]], frac: 'P(Refugo) = 30 / 800 = 0.0375', c: RAW`Probabilidade marginal: total da coluna Refugo (verde) sobre o total geral (azul).` },
+                { hl: [[0, 2, C.green], [2, 3, C.blue]], frac: 'P(M1 ∩ Refugo) = 20 / 800 = 0.025', c: RAW`Conjunta: uma única célula (M1 e Refugo) sobre o total geral.` },
+                { hl: [[0, 2, C.green], [0, 3, C.blue], [1, 2, C.violet], [1, 3, C.amber]], den: [[0, 3], [1, 3]], frac: '20/500 = 0.040 · 10/300 = 0.033', c: RAW`Condicional: célula sobre o total <strong>da linha</strong>. M1 em verde/azul, M2 em roxo/âmbar.` },
+                { hl: [[0, 2, C.green], [2, 2, C.blue]], den: [[0, 2], [1, 2], [2, 2]], frac: 'P(M1|Refugo) = 20 / 30 = 0.667', c: RAW`Invertendo a condição, o universo vira a <strong>coluna</strong> Refugo: 20 das 30 peças refugadas vieram de M1.` },
+                { k: 'bars', x: ['Observado', 'Esperado se independente'], v: [20, 18.75], d: 2, ymax: 25, col: [C.blue, C.gray], c: RAW`Se máquina e refugo fossem independentes, esperaríamos $800 \times 0.625 \times 0.0375 = 18.75$ peças. Observamos 20: diferença pequena.` }] },
+            '1.10': { k: 'tree', root: 'peça', br: [{ l: 'A', p: .7, ch: [{ l: 'aprov', p: .98 }, { l: 'reprov', p: .02 }] }, { l: 'B', p: .3, ch: [{ l: 'aprov', p: .9 }, { l: 'reprov', p: .1 }] }], st: [
+                { c: RAW`Árvore: primeiro o fornecedor, depois o resultado da inspeção. Os ramos de reprovação são os complementos: $1 - 0.98 = 0.02$ e $1 - 0.90 = 0.10$.` },
+                { leaf: true, c: RAW`Ao lado de cada folha, o produto das probabilidades do caminho. As quatro folhas somam 1.` },
+                { leaf: true, hl: ['0.0', '1.0'], big: 'P(aprov) = 0.686 + 0.270 = 0.956', c: RAW`Os dois caminhos laranja terminam em "aprovada": somá-los dá $P(\text{aprovada})$.` },
+                { leaf: true, hl: ['0.1', '1.1'], big: 'P(B|reprov) = 0.030 / 0.044 = 0.682', c: RAW`Bayes: entre os caminhos que terminam em "reprovada" (0.014 + 0.030), o de B é 0.030, ou 68%.` }] },
+            // ---------- Módulo 2 ----------
+            '2.1': { k: 'bars', x: ['CC', 'CN', 'NC', 'NN'], v: [.81, .09, .09, .01], d: 2, ymax: 1, col: C.gray, st: [
+                { c: RAW`Os 4 resultados do experimento e suas probabilidades. CC domina porque cada peça é boa com 90%.` },
+                { col: [C.blue, C.orange, C.orange, C.violet], vl: ['X = 0', 'X = 1', 'X = 1', 'X = 2'], c: RAW`A variável $X$ etiqueta cada resultado com um número. CN e NC recebem o mesmo rótulo, $X = 1$ (laranja).` },
+                { x: ['x = 0', 'x = 1', 'x = 2'], v: [.81, .18, .01], col: [C.blue, C.orange, C.violet], vl: null, c: RAW`Agrupando pelo rótulo, as duas barras laranja se fundem: $p(1) = 0.09 + 0.09 = 0.18$. Isso é a função de probabilidade de $X$.` },
+                { mark: [[.2, 'E[X] = 0.2', C.green]], c: RAW`A linha verde é o valor esperado: o ponto de equilíbrio das barras, $0(0.81) + 1(0.18) + 2(0.01) = 0.2$.` }] },
+            '2.2': { k: 'bars', x: ['1', '2', '3', '4'], v: [.1, .2, .3, .4], d: 2, ymin: 0, ymax: .5, col: C.blue, st: [
+                { yl: '(i) p(x) = x/10', c: RAW`Teste visual de uma FP: nenhuma barra pode ficar abaixo do eixo, e as alturas juntas têm que somar 1.` },
+                { col: C.green, big: '0.1+0.2+0.3+0.4 = 1 ✓', c: RAW`Função (i): todas as barras positivas e a soma dá 1. Válida.` },
+                { yl: '(ii) p(x) = (x − 1)/5', x: ['0', '1', '2', '3'], v: [-.2, 0, .2, .4], ymin: -.3, col: [C.red, C.gray, C.gray, C.gray], big: 'p(0) = −0.2 ✗', c: RAW`Função (ii): a barra vermelha fura o eixo para baixo. Probabilidade negativa não existe: inválida.` },
+                { yl: '(iii) p(x) = 0.5ˣ', x: ['1', '2', '3', '4', '5', '6', '7', '8'], v: [.5, .25, .125, .0625, .03125, .015625, .0078, .0039], d: 3, ymin: 0, ymax: .6, col: C.green, big: 'soma → 1 ✓', c: RAW`Função (iii): infinitas barras, cada uma metade da anterior. A soma converge para 1: válida.` },
+                { yl: '(i) p(x) = x/10', x: ['1', '2', '3', '4'], v: [.1, .2, .3, .4], d: 2, ymax: .5, col: C.blue, hl: [2, 3], big: 'P(X ≥ 3) = 0.3 + 0.4 = 0.7', c: RAW`$P(X \ge 3)$ é a soma das barras de 3 em diante (destacadas).` }] },
+            '2.3': { k: 'cdf', p: [.5, .3, .2], st: [
+                { c: RAW`Em cima, a FP. Embaixo, a FDA: em cada valor de $x$ ela sobe exatamente a altura da barra de cima (0.5, depois 0.3, depois 0.2).` },
+                { c: RAW`Entre dois valores possíveis nada se acumula: a FDA fica plana (degraus). Bolinha cheia = valor incluído; vazia = valor excluído.` },
+                { pt: [[1.7, 'F(1.7) = 0.8']], c: RAW`Em $x = 1.7$ estamos no degrau que começa em 1: $F(1.7) = F(1) = 0.8$.` },
+                { pt: [[.96, 'P(X<1) = 0.5', C.violet], [1, 'P(X≤1) = 0.8']], c: RAW`Logo antes de 1 a escada ainda está em 0.5; em 1 ela já pulou para 0.8. Em variável discreta, $&lt;$ e $\le$ dão respostas diferentes.` },
+                { pt: [], jump: 1, c: RAW`A altura do salto em $x = 1$ é a probabilidade pontual: $0.8 - 0.5 = 0.3 = p(1)$.` }] },
+            '2.4': { k: 'bars', x: ['0', '1', '2', '3'], v: [.6, .3, .1, 0], d: 2, ymax: 1, col: C.blue, st: [
+                { yl: 'Máquina A', mark: [[.5, 'E = 0.5', C.green]], c: RAW`Máquina A: falhas por mês. A linha verde é o ponto de equilíbrio das barras: $E[X_A] = 0.5$.` },
+                { yl: 'Máquina B', v: [.8, 0, 0, .2], col: C.orange, mark: [[.6, 'E = 0.6', C.green]], c: RAW`Máquina B: mais meses sem falha, mas uma barra lá longe em 3. Esse peso distante puxa o equilíbrio para 0.6.` },
+                { k: 'bars', yl: 'Custo esperado (R$/mês)', x: ['A', 'B'], v: [1000, 1200], d: 0, ymax: 1500, col: [C.blue, C.orange], mark: [], c: RAW`Multiplicando por 2000 reais por falha: A custa 1000 e B 1200 por mês, em média.` },
+                { k: 'bars', yl: 'Custo esperado (R$/mês)', x: ['A', 'B'], v: [1000, 1200], d: 0, ymax: 1500, col: [C.blue, C.orange], mark: [], big: 'A economiza R$ 200/mês', c: RAW`B parece mais confiável (80% dos meses sem falha), mas no longo prazo é mais cara.` }] },
+            '2.5': { k: 'bars', x: ['0', '1', '2', '3'], v: [.6, .3, .1, 0], d: 2, ymax: 1, col: C.blue, mark: [[.5, 'μ = 0.5', C.green]], st: [
+                { yl: 'Máquina A', vl: ['0²·0.6', '1²·0.3', '2²·0.1', ''], c: RAW`Para $E[X^2]$ cada valor é elevado ao quadrado antes de ponderar: $0 + 0.3 + 0.4 = 0.7$.` },
+                { yl: 'Máquina A', vl: null, band: [.5 - .67, .5 + .67, C.violet], c: RAW`$Var(X_A) = 0.7 - 0.5^2 = 0.45$, $\sigma_A = 0.67$. A faixa roxa é $\mu \pm \sigma$: a maior parte das barras cabe nela.` },
+                { yl: 'Máquina B', v: [.8, 0, 0, .2], col: C.orange, mark: [[.6, 'μ = 0.6', C.green]], band: [.6 - 1.2, .6 + 1.2, C.violet], c: RAW`Máquina B: $Var = 1.8 - 0.36 = 1.44$, $\sigma_B = 1.2$. A faixa fica bem mais larga por causa da barra em 3.` },
+                { k: 'bars', yl: 'Desvio padrão do custo (R$)', x: ['A', 'B'], v: [1342, 2400], d: 0, ymax: 3000, col: [C.blue, C.orange], mark: [], band: null, c: RAW`Em reais, B oscila quase o dobro de A. Médias parecidas, riscos muito diferentes.` }] },
+            '2.6': { k: 'cdf', p: [.2, .35, .25, .15, .05], st: [
+                { c: RAW`FDA da demanda: cada degrau acumula a barra de cima. Os valores 0.20, 0.55, 0.80, 0.95, 1 são os da tabela.` },
+                { q: [[.5, '']], c: RAW`Regra do percentil: ande na horizontal na altura $q$ até bater na escada e desça. O $x$ onde você cai é o primeiro com $F(x) \ge q$.` },
+                { q: [[.5, 'Md = 1'], [.75, 'Q₃ = 2'], [.9, 'P₉₀ = 3']], c: RAW`Três alturas, três respostas: 0.5 bate no degrau de 1; 0.75 no de 2; 0.90 passa por cima do degrau 0.80 e só bate no de 3.` },
+                { q: [[.9, 's = 3 peças']], big: 'F(3) = 0.95 ≥ 0.90', c: RAW`Com 3 peças em estoque, a demanda é atendida sempre que $X \le 3$, ou seja, em 95% das semanas.` }] },
+            '2.7': { k: 'stack', rows: [['Médias (mm)', [[10, C.blue, '10'], [20, C.orange, '20'], [30, C.violet, '30']]]], max: 60, st: [
+                { big: 'E[total] = 60 mm', c: RAW`Médias se somam diretamente: as três peças em linha medem $10 + 20 + 30 = 60$ mm em média.` },
+                { rows: [['Variâncias', [[4, C.blue, '0.0004'], [9, C.orange, '0.0009'], [36, C.violet, '0.0036']]]], max: 49, big: 'σ² = 0.0049', c: RAW`Para peças independentes, as <strong>variâncias</strong> se somam. Repare no tamanho da fatia roxa (peça 3).` },
+                { k: 'bars', x: ['Soma dos σ (errado)', '√(Σσ²) (certo)'], v: [.11, .07], d: 2, ymax: .14, col: [C.red, C.green], c: RAW`Somar desvios padrão daria 0.11 mm; o correto é $\sqrt{0.0049} = 0.07$ mm. Variações independentes se compensam em parte.` },
+                { k: 'stack', rows: [['Antes', [[4, C.blue, ''], [9, C.orange, ''], [36, C.violet, 'peça 3: 73%']]], ['Depois', [[4, C.blue, ''], [9, C.orange, ''], [9, C.violet, 'peça 3']]]], max: 49, big: 'σ: 0.070 → 0.047 mm', c: RAW`A peça 3 domina a variância (73%). Melhorá-la encolhe a barra inteira: é a peça certa para atacar primeiro.` }] },
+            '2.8': { k: 'curve', f: x => 10 * x * x, x0: 0, x1: 4, ymax: 170, ticks: [0, 1, 2, 3, 4], yl: 'P = 10 I²', st: [
+                { pts: [[2, 40, 'g(E[I]) = 40 W', C.red]], vl: [[2, 'E[I] = 2 A', C.red]], c: RAW`O atalho errado: calcular a média da corrente (2 A) e só depois aplicar a função. Isso dá o ponto vermelho, 40 W.` },
+                { pts: [[1, 10, '10 W', C.blue], [3, 90, '90 W', C.blue], [2, 50, 'E[P] = 50 W', C.green], [2, 40, '40', C.red]], seg: [[1, 10, 3, 90, C.green]], c: RAW`O certo: aplicar a função em cada valor (10 W e 90 W) e fazer a média. O ponto médio da corda verde, 50 W, fica <strong>acima</strong> da curva.` },
+                { seg: [[1, 10, 3, 90, C.green], [2, 40, 2, 50, C.orange, '10·Var(I) = 10 W']], c: RAW`A diferença entre a corda e a curva é $10 \cdot Var(I) = 10$ W. Curvas convexas sempre deixam $E[g(X)] \ge g(E[X])$.` }] },
+            // ---------- Módulo 3 ----------
+            '3.1': { k: 'bars', x: range(1, 20).map(String), v: Array(20).fill(.05), d: null, ymax: .08, col: C.blue, st: [
+                { big: 'k = 20 − 1 + 1 = 20', c: RAW`Vinte barras iguais de altura $1/20 = 0.05$: todas as bancadas têm a mesma chance.` },
+                { hl: [0, 1, 2, 3, 4], big: 'P(X ≤ 5) = 5/20 = 0.25', c: RAW`$X \le 5$ são as cinco primeiras barras. Na uniforme discreta, probabilidade é "quantos valores" sobre "total de valores".` },
+                { hl: null, mark: [[9.5, 'E = 10.5', C.green]], band: [9.5 - 5.77, 9.5 + 5.77, C.violet], c: RAW`O centro fica entre 10 e 11 ($E = 10.5$). A faixa roxa é $\mu \pm \sigma = 10.5 \pm 5.77$.` },
+                { x: ['1', '2', '3', '4', '5', '6'], v: Array(6).fill(1 / 6), ymax: .25, mark: [[2.5, 'E = 3.5', C.green]], band: [2.5 - 1.708, 2.5 + 1.708, C.violet], big: 'Var = (36 − 1)/12 = 2.917', c: RAW`Dado comum: 6 barras de $1/6$, centro em 3.5 e $\sigma = 1.71$.` }] },
+            '3.2': { k: 'bars', x: ['0', '1', '2', '3', '4', '5'], v: [.59049, .32805, .0729, .0081, .00045, .00001], d: 3, ymax: .7, col: C.blue, st: [
+                { c: RAW`A binomial com $n = 5$ e $p = 0.1$: zero defeituosas é o mais provável. As quatro hipóteses (n fixo, dois desfechos, p constante, independência) valem.` },
+                { k: 'stack', lw: 90, rows: [['NCCCC', [[1, C.red, 'N'], [1, C.green, 'C'], [1, C.green, 'C'], [1, C.green, 'C'], [1, C.green, 'C']]]], max: 5, big: '0.1 × 0.9⁴ = 0.06561', c: RAW`Uma sequência específica: a 1ª defeituosa (vermelho, 0.1) e as outras boas (verde, 0.9 cada). Multiplica tudo.` },
+                { k: 'stack', lw: 90, rows: ['NCCCC', 'CNCCC', 'CCNCC', 'CCCNC', 'CCCCN'].map((s, i) => [s, [...s].map(ch => [1, ch === 'N' ? C.red : C.green, ''])]), max: 5, big: '5 × 0.06561 = 0.32805', c: RAW`A peça defeituosa pode ocupar qualquer uma das 5 posições: $\binom{5}{1} = 5$ sequências, todas com a mesma probabilidade.` },
+                { k: 'bars', d: 5, hl: null, c: RAW`Repetindo para cada $k$: a tabela completa. Note como as barras despencam depois de $k = 1$.` },
+                { hl: [2, 3, 4, 5], col: [C.blue, C.blue, C.red, C.red, C.red, C.red], big: 'P(X ≥ 2) = 1 − 0.59049 − 0.32805 = 0.08146', c: RAW`"Pelo menos 2" são as barras vermelhas. Mais fácil tirar de 1 as duas barras azuis.` },
+                { hl: null, col: C.blue, mark: [[.5, 'np = 0.5', C.green]], band: [.5 - .67, .5 + .67, C.violet], c: RAW`Centro em $np = 0.5$, desvio $\sqrt{0.45} = 0.67$ (faixa roxa).` }] },
+            '3.3': { k: 'bars', x: range(0, 8).map(String), v: poiPmf(2, 8), d: 3, ymax: .33, col: C.blue, st: [
+                { c: RAW`Poisson com $\lambda = 2$: a forma das chamadas por hora. Sem máximo natural, a cauda continua à direita.` },
+                { hl: [0, 1, 2, 3], d: 4, c: RAW`Os quatro primeiros termos. Cada um é o anterior vezes $\lambda/k$: $\times 2$, $\times 1$, $\times 2/3$.` },
+                { hl: null, col: range(0, 8).map(k => k <= 3 ? C.blue : C.red), big: 'P(X ≥ 4) = 1 − 0.8571 = 0.143', c: RAW`Em vermelho, as horas com mais de 3 chamados: sobrecarga. Somar infinitas barras é impossível; tira-se de 1 as azuis.` }] },
+            '3.4': { k: 'bars', x: range(0, 6).map(String), v: binPmf(200, .01).slice(0, 7), d: 4, ymax: .34, col: C.blue, st: [
+                { big: 'λ = np = 200 × 0.01 = 2', c: RAW`Binomial com $n = 200$ e $p = 0.01$: n grande, p pequeno. A forma já lembra a Poisson com $\lambda = 2$.` },
+                { hl: [3], c: RAW`O termo exato $P(X = 3) = 0.18136$ exige $\binom{200}{3}$ e $0.99^{197}$.` },
+                { v: poiPmf(2, 6), col: C.orange, c: RAW`Trocando pela Poisson($\lambda = 2$), as barras quase não se mexem. $P(X = 3) = 0.18045$.` },
+                { k: 'bars', x: ['Binomial', 'Poisson'], v: [.18136, .18045], d: 5, base: .175, ymin: .175, ymax: .184, col: [C.blue, C.orange], hl: null, big: 'erro 0.0009 (0.5%)', c: RAW`Ampliando (eixo começa em 0.175), a diferença aparece, mas é de só 0.5% do valor.` }] },
+            '3.5': { k: 'bars', x: range(0, 7).map(String), v: binPmf(20, .1).slice(0, 8), d: 3, ymax: .35, col: C.blue, st: [
+                { yl: '(i) Binomial(20; p), ilustrada com p = 0.1', c: RAW`Caso (i): máximo de 20 e cada peça é sim/não, com $p$ constante. Barras param em 20.` },
+                { yl: '(ii) Poisson, ilustrada com λ = 2', v: poiPmf(2, 7), col: C.orange, c: RAW`Caso (ii): defeitos por m² não têm máximo natural. Poisson.` },
+                { k: 'stack', rows: [['1ª retirada', [[2, C.red, '2 def.'], [10, C.green, '10 boas']]], ['2ª, se a 1ª foi def.', [[1, C.red, '1'], [10, C.green, '10 boas']]]], max: 12, c: RAW`Caso (iii): sem reposição de um lote de 12, a fração defeituosa muda de $2/12$ para $1/11$. $p$ não é constante: hipergeométrica.` },
+                { k: 'bars', yl: '(iii) Hipergeométrica', x: ['0', '1', '2'], v: [120 / 220, 90 / 220, 10 / 220], d: 3, ymax: .7, col: C.violet, hl: [1], c: RAW`Contando amostras: $\binom{2}{1}\binom{10}{2} = 90$ das 220 possíveis têm exatamente 1 defeituosa.` },
+                { k: 'bars', yl: 'P(X = 1)', x: ['Hipergeométrica', 'Binomial (errada)'], v: [.409, .347], d: 3, ymax: .5, col: [C.violet, C.red], hl: null, c: RAW`A binomial erra 15% aqui: com o lote tão pequeno, ignorar a mudança de $p$ custa caro.` }] },
+            '3.6': { k: 'curve', f: t => 1 - Math.exp(-.2 * t), x0: 0, x1: 25, ymax: 1.08, yl: 'P(X ≥ 1) = 1 − e^(−0.2t)', st: [
+                { c: RAW`A curva mostra a chance de ver pelo menos uma falha em função do tempo de teste. Cresce rápido no início e depois se aproxima de 1.` },
+                { hl: [[.95, 'meta 0.95', C.red]], c: RAW`A meta é a linha vermelha: queremos o primeiro $t$ em que a curva passa por cima dela.` },
+                { vl: [[14.98, 't = 14.98 h', C.green]], c: RAW`O cruzamento sai isolando $t$ com logaritmo: $t = \ln 20 / 0.2 = 14.98$ h.` },
+                { pts: [[15, .9502, '(15 h; 0.950)', C.green]], c: RAW`Conferindo: com 15 h a curva está em $1 - e^{-3} = 0.950$.` }] },
+            '3.7': { k: 'curve', f: p => (1 - p) ** 20, x0: 0, x1: .03, ymax: 1.05, ticks: [0, .01, .02, .03], yl: 'P(X = 0) = (1 − p)²⁰', st: [
+                { c: RAW`Quanto maior a fração defeituosa $p$, menor a chance de um lote de 20 vir perfeito.` },
+                { hl: [[.9, 'dado: 0.90', C.red]], c: RAW`O cliente informou que 90% dos lotes vêm perfeitos: é a linha vermelha.` },
+                { vl: [[.00525, 'p = 0.00525', C.green]], c: RAW`O cruzamento dá $p = 1 - 0.9^{1/20} = 0.00525$: só 0.5% por peça.` }] }
+        };
+
+        const fPar = x => x >= 0 && x <= 2 ? .75 * x * (2 - x) : 0, FPar = x => x <= 0 ? 0 : x >= 2 ? 1 : .75 * (x * x - x ** 3 / 3);
+        const fTri = x => x >= 0 && x <= 2 ? x / 2 : 0, FTri = x => clamp(x * x / 4, 0, 1);
+        const fGeneric = x => x >= 0 && x <= 2 ? x * (2 - x) : 0;
+        Object.assign(EXFIG, {
+            // ---------- Módulo 4 ----------
+            '4.1': { k: 'curve', f: dU(0, 10), x0: -1, x1: 11, ymax: .14, yl: 'f(x) = 1/10', st: [
+                { vl: [[5, 'x = 5', C.red]], c: RAW`Densidade plana de 0 a 10. Probabilidade é <strong>área</strong> sob ela; uma linha vertical em $x = 5$ não tem largura, logo área zero.` },
+                { x0: 4.9, x1: 5.1, sh: [[4.99, 5.01, C.orange]], c: RAW`Ampliando em torno de 5: o retângulo laranja tem base 0.02 e altura 0.1, área $0.002$.` },
+                { x0: 4.5, x1: 5.5, sh: [[4.95, 5.05, C.orange]], vl: [[4.95, '4.95', C.orange], [5.05, '5.05', C.orange]], c: RAW`O instrumento que lê "5.0" agrupa todo o intervalo $[4.95; 5.05)$: base 0.1, área $0.01$.` }] },
+            '4.2': { k: 'curve', f: fGeneric, x0: -.2, x1: 2.2, ymax: 1.2, yl: 'f(x) = c·x(2 − x)', st: [
+                { sh: [[0, 2, C.blue]], c: RAW`A forma (uma parábola) é conhecida, mas a escala não. A condição é que a área azul total seja 1.` },
+                { sh: [[0, 2, C.blue]], big: 'área com c = 1: 4/3', c: RAW`Com $c = 1$ a área seria $4 - 8/3 = 4/3$: grande demais. Precisamos encolher a curva.` },
+                { f: fPar, yl: 'f(x) = 0.75·x(2 − x)', big: 'c = 3/4 → área = 1', c: RAW`Multiplicando por $c = 3/4$, a curva desce e a área fica exatamente 1.` },
+                { sh: [[0, .5, C.orange]], big: 'P(X < 0.5) = 0.156', c: RAW`$P(X &lt; 0.5)$ é só a fatia laranja à esquerda de 0.5: cerca de 16% da área total.` }] },
+            '4.3': { k: 'curve', f: FPar, f2: [fPar, C.orange, 'f(x) tracejada'], x0: -.4, x1: 2.4, ymax: 1.15, yl: 'F(x) = 0.75(x² − x³/3)', st: [
+                { f2: [fPar, rgba(C.orange, .5), 'f(x)'], c: RAW`Curva azul: a FDA, que acumula a área da densidade (laranja) da esquerda até $x$.` },
+                { c: RAW`Antes de 0 a FDA vale 0 (nada acumulado); depois de 2 vale 1 (tudo acumulado). Entre os dois, a cúbica.` },
+                { pts: [[0, 0, 'F(0) = 0', C.green], [2, 1, 'F(2) = 1', C.green]], c: RAW`As pontas conferem: começa em 0 e termina em 1.` },
+                { pts: [[.5, .15625, '0.156', C.violet], [1.5, .84375, '0.844', C.violet]], seg: [[1.75, .15625, 1.75, .84375, C.violet, '0.6875']], c: RAW`A probabilidade de um intervalo é a diferença de alturas da FDA: $0.844 - 0.156 = 0.6875$, sem integrar de novo.` },
+                { pts: [], seg: [], f2: [fPar, C.orange, "F′(x) = f(x)"], c: RAW`De volta: a inclinação da FDA em cada ponto é a densidade. Onde $f$ é alta (perto de 1), $F$ sobe mais rápido.` }] },
+            '4.4': { k: 'curve', f: fPar, x0: -.2, x1: 2.2, ymax: .95, yl: 'f(x) = 0.75(2x − x²)', st: [
+                { vl: [[1, 'E[X] = 1', C.green]], c: RAW`A densidade é simétrica em torno de 1, então o ponto de equilíbrio (a média) só pode ser 1.` },
+                { f2: [x => x * x * fPar(x), C.orange, 'x²·f(x)'], vl: [[1, 'E[X] = 1', C.green]], big: 'E[X²] = 1.2', c: RAW`A curva laranja é $x^2 f(x)$: os valores distantes de 0 pesam mais. A área sob ela é $E[X^2] = 1.2$.` },
+                { f2: null, sh: [[1 - .447, 1 + .447, C.violet]], big: 'σ = √0.2 = 0.447', c: RAW`$Var = 1.2 - 1 = 0.2$. A faixa roxa é $\mu \pm \sigma = [0.553; 1.447]$.` }] },
+            '4.5': { k: 'curve', f: fPar, x0: -.2, x1: 2.2, ymax: .95, st: [
+                { pts: [[1, .75, 'moda: f máxima', C.red]], c: RAW`A moda é o topo da densidade: onde a derivada zera, $x = 1$.` },
+                { sh: [[0, 1, C.blue]], vl: [[1, 'Md = 1', C.green]], big: 'área à esquerda = 0.5', c: RAW`A mediana divide a área ao meio. Pela simetria, também é 1.` },
+                { f: FPar, ymax: 1.1, sh: [], pts: [], vl: [], hl: [[.9, 'F(x) = 0.9', C.red]], c: RAW`Para o percentil 90, troque para a FDA: procura-se onde ela cruza a altura 0.9. A equação é cúbica.` },
+                { pts: [[1.5, .844, '1.5', C.muted], [1.6, .896, '1.6', C.muted], [1.61, .901, '', C.muted]], vl: [[1.608, 'x ≈ 1.608', C.green]], c: RAW`Bisseção: em 1.5 a curva está abaixo; em 1.61 já passou. Estreitando o intervalo, chega-se a 1.608.` }] },
+            '4.6': { k: 'curve', f: FTri, x0: -.2, x1: 2.2, ymax: 1.1, yl: 'F(x) = x²/4', st: [
+                { pts: [[1, .25, 'F(1) = 0.25', C.blue]], seg: [[1, .25, 1, 1, C.orange, 'P(X > 1) = 0.75']], hl: [[1, '', C.axis]], c: RAW`A FDA dá a área à esquerda. O que falta até 1 (segmento laranja) é a cauda direita.` },
+                { f: fTri, ymax: 1.1, yl: 'f(x) = x/2', pts: [], seg: [], hl: [], c: RAW`Derivando, a FDA vira a densidade $x/2$: uma rampa. Suportes fracos (perto de 0) são raros.` },
+                { f: FTri, yl: 'F(x) = x²/4', hl: [[.1, '10%', C.red]], vl: [[.632, 'x = 0.632 kN', C.green]], c: RAW`10% dos suportes rompem abaixo de $x$: é onde a FDA vale 0.1. Invertendo, $x = \sqrt{0.4} = 0.632$ kN.` }] },
+            '4.7': { k: 'curve', f: fTri, x0: -.2, x1: 2.2, ymax: 1.1, yl: 'f(x) = x/2', st: [
+                { sh: [[0, 1, C.blue], [1.414, 1.732, C.blue]], vl: [[1, 'Q₁', C.blue], [1.414, 'Md', C.green], [1.732, 'Q₃', C.blue]], c: RAW`Os quartis cortam a área em quatro fatias de 25% (alternadas em azul). A primeira fatia é larga (de 0 a 1), a última é estreita.` },
+                { vl: [[1, 'Q₁', C.blue], [1.414, 'Md', C.green], [1.732, 'Q₃', C.blue], [1.333, 'E[X] = 1.333', C.orange]], sh: [[1.333 - .471, 1.333 + .471, C.violet]], c: RAW`A média (laranja) fica à esquerda da mediana. Faixa roxa: $\mu \pm \sigma$.` },
+                { sh: [[0, 1, C.blue], [1.414, 1.732, C.blue]], c: RAW`$Md - Q_1 = 0.414$ é maior que $Q_3 - Md = 0.318$: a metade de baixo é mais espalhada. Cauda longa à esquerda.` }] },
+            // ---------- Módulo 5 ----------
+            '5.1': { k: 'curve', f: dU(0, 15), x0: -2, x1: 17, ymax: .1, yl: 'f(x) = 1/15', st: [
+                { c: RAW`Uniforme de 0 a 15: um retângulo de altura $1/15$. A área total é $15 \times 1/15 = 1$.` },
+                { sh: [[10, 15, C.orange]], big: 'P(X > 10) = 5/15 = 0.333', c: RAW`$X &gt; 10$ é o retângulo laranja: base 5, altura $1/15$.` },
+                { sh: [[7.5 - 4.33, 7.5 + 4.33, C.violet]], vl: [[7.5, 'E = 7.5', C.green]], c: RAW`Centro em 7.5 e $\sigma = 15/\sqrt{12} = 4.33$ (faixa roxa).` },
+                { f: dU(-.5, .5), x0: -1, x1: 1, ymax: 1.3, yl: 'erro ~ U(−0.5; 0.5)', sh: [[-.289, .289, C.violet]], vl: [[0, '0', C.green]], big: 'σ = 1/√12 = 0.289', c: RAW`O erro de arredondamento é um retângulo de largura 1. Seu desvio padrão é $1/\sqrt{12} = 0.289$.` }] },
+            '5.2': { k: 'curve', f: dN(500, 5), x0: 480, x1: 525, ymax: .09, st: [
+                { sh: [[485, 515, C.blue], [490, 510, C.blue], [495, 505, C.blue]], vl: [[495, '495'], [505, '505'], [490, '490', C.violet], [510, '510', C.violet]], c: RAW`Faixas aninhadas: a mais escura ($\pm 1\sigma$) tem 68%; até $\pm 2\sigma$, 95%; até $\pm 3\sigma$ (mais clara), 99.7%.` },
+                { sh: [[520, 525, C.red]], vl: [[520, '520 g: z = 4', C.red]], c: RAW`520 g está a 4 desvios da média: a curva ali já é praticamente zero. Cerca de 3 em 100 000.` },
+                { sh: [[480, 490, C.orange]], vl: [[490, '490 g: z = −2', C.orange]], big: 'Φ(−2) = 0.0228', c: RAW`Abaixo de $\mu - 2\sigma$ fica metade dos 5% de fora: cerca de 2.3%.` }] },
+            '5.3': { k: 'curve', f: dN(100, 2), x0: 92, x1: 108, ymax: .23, st: [
+                { vl: [[97, '97 → z = −1.5', C.orange], [104, '104 → z = 2', C.green]], c: RAW`Cada limite vira "quantos desvios da média": 97 está 1.5 desvios abaixo e 104 está 2 acima.` },
+                { sh: [[92, 104, C.green]], big: 'Φ(2.0) = 0.9772', c: RAW`A tabela dá a área <strong>à esquerda</strong> de $z$: tudo até 104.` },
+                { sh: [[92, 97, C.orange], [103, 108, C.orange]], big: 'Φ(−1.5) = 1 − 0.9332 = 0.0668', c: RAW`A tabela só tem $z$ positivo. Pela simetria, a cauda abaixo de $-1.5$ (esquerda) é igual à acima de $+1.5$ (direita).` },
+                { sh: [[97, 104, C.blue]], big: '0.9772 − 0.0668 = 0.9104', c: RAW`A faixa entre os limites é "tudo até 104" menos "tudo até 97".` }] },
+            '5.4': { k: 'curve', f: dE(.0002), x0: 0, x1: 15000, ymax: .00022, yl: 'f(t) = λe^(−λt)', st: [
+                { c: RAW`Densidade exponencial: começa alta e decai. $F(t) = 1 - e^{-\lambda t}$ é a área à esquerda; $R(t)$, a área à direita.` },
+                { sh: [[0, 1000, C.red]], vl: [[1000, '1000 h', C.red]], big: 'P(T < 1000) = 0.181', c: RAW`Área vermelha: falhar antes de 1000 h, $1 - e^{-0.2}$.` },
+                { sh: [[5000, 15000, C.green]], vl: [[5000, 'MTTF 5000 h', C.green]], big: 'R(5000) = e⁻¹ = 0.368', c: RAW`Área verde: sobreviver além da vida média. Só 37%, porque a cauda longa puxa a média para a direita.` },
+                { sh: [[0, 3466, C.blue]], vl: [[3466, 'mediana 3466 h', C.blue], [5000, 'média', C.green]], big: 'área azul = 0.5', c: RAW`A mediana (metade da área) chega antes da média: $\ln 2 / \lambda = 3466$ h.` }] },
+            '5.5': { k: 'curve', f: dE(.0002), x0: 0, x1: 15000, ymax: .00022, st: [
+                { sh: [[3000, 15000, C.blue], [5000, 15000, C.green]], vl: [[3000, 'já viveu 3000 h', C.blue], [5000, '5000 h', C.green]], c: RAW`Azul: LEDs que passaram de 3000 h (a nova referência). Verde: os que passam de 5000 h.` },
+                { big: 'e⁻¹ / e^(−0.6) = e^(−0.4) = 0.670', c: RAW`A condicional é a fração verde dentro do azul: $P(T &gt; 5000)/P(T &gt; 3000)$.` },
+                { sh: [[2000, 15000, C.green]], vl: [[2000, 'LED novo: 2000 h', C.green]], big: 'R(2000) = 0.670', c: RAW`Um LED novo durar 2000 h tem a mesma área: a exponencial não "lembra" o tempo já vivido.` }] },
+            '5.6': { k: 'curve', f: dN(0, 1), x0: -4, x1: 4, ymax: .45, yl: 'Z ~ N(0, 1)', st: [
+                { sh: [[-4, -2.326, C.red]], vl: [[-2.326, 'z = −2.326', C.red]], c: RAW`Na normal padrão, o ponto que deixa 1% à esquerda é $z = -2.326$.` },
+                { f: dN(50, .4), x0: 48.5, x1: 52.5, ymax: 1.1, yl: 'X ~ N(μ; 0.4²)', sh: [[48.5, 50, C.red]], vl: [[50, 'LIE = 50', C.red]], c: RAW`Se o processo fosse centrado no próprio limite (50), metade das peças sairia abaixo dele.` },
+                { f: dN(50.93, .4), vl: [[50, 'LIE', C.red], [50.93, 'μ = 50.93', C.green]], big: 'só 1% abaixo do LIE', c: RAW`Deslocando a média 2.326 desvios para cima ($2.326 \times 0.4 = 0.93$ mm), a cauda vermelha encolhe para 1%.` }] },
+            '5.7': { k: 'curve', f: dN(20, .02), f2: [dN(20.08, .03), C.orange, 'furo'], x0: 19.93, x1: 20.18, ymax: 22, yl: 'eixo', st: [
+                { c: RAW`Eixo (azul) e furo (laranja). Em geral o furo é maior, mas as caudas se cruzam: às vezes o eixo sai maior.` },
+                { f: dN(.08, .0361), f2: null, x0: -.06, x1: .22, ymax: 12, yl: 'folga = furo − eixo', vl: [[.08, 'μ = 0.08', C.green]], c: RAW`A folga é uma nova normal, centrada em $20.08 - 20.00 = 0.08$ mm.` },
+                { sh: [[.08 - .0361, .08 + .0361, C.violet]], big: 'σ = √(0.02² + 0.03²) = 0.036', c: RAW`Mesmo sendo uma diferença, as variâncias se somam: a folga é mais variável que cada peça.` },
+                { sh: [[-.06, 0, C.red]], vl: [[0, 'folga 0', C.red], [.08, 'μ', C.green]], big: 'Φ(−2.22) = 0.0132', c: RAW`Interferência é folga negativa: a cauda vermelha, cerca de 1.3%.` }] },
+            '5.8': { k: 'curve', f: dN(20, 4), x0: 7, x1: 33, ymax: .12, bars: { xs: range(7, 33), ps: binPmf(100, .2).slice(7, 34) }, st: [
+                { big: 'np = 20 ≥ 5 · n(1−p) = 80 ≥ 5', c: RAW`Barras: binomial exata. Curva: normal. As duas condições valem, e a curva acompanha bem as barras.` },
+                { sh: [[16, 24, C.violet]], vl: [[20, 'μ = 20', C.green]], c: RAW`Média $np = 20$ e desvio $\sqrt{16} = 4$ (faixa roxa).` },
+                { sh: [[7, 15.5, C.green]], vl: [[15.5, '15.5', C.green]], bars: { xs: range(7, 33), ps: binPmf(100, .2).slice(7, 34), upto: 15 }, big: 'Φ(−1.13) = 0.1292', c: RAW`$X \le 15$ inclui a barra inteira do 15, que vai até 15.5. A área verde até 15.5 cobre exatamente as barras azuis.` },
+                { sh: [[7, 15, C.red]], vl: [[15, '15', C.red]], big: 'Φ(−1.25) = 0.1056', c: RAW`Cortando em 15, metade da barra do 15 fica de fora: a área vermelha subestima.` },
+                { sh: [[7, 15.5, C.green]], vl: [[15.5, '15.5', C.green]], big: 'exato 0.1285', c: RAW`Exato 0.1285: com correção erra 0.0007; sem correção, 0.023.` }] },
+            '5.9': { k: 'curve', f: t => Math.exp(-.001 * t), x0: 0, x1: 4000, ymax: 1.08, yl: 'R(t) de 1 componente', st: [
+                { pts: [[1000, .368, 'R(1000) = 0.368', C.blue]], c: RAW`Um componente sozinho: a confiabilidade decai exponencialmente.` },
+                { f2: [t => 1 - (1 - Math.exp(-.001 * t)) ** 2, C.green, 'paralelo (2)'], pts: [[1000, .368, '0.368', C.blue], [1000, .6, '0.600', C.green]], c: RAW`Dois em paralelo (verde): o sistema só falha quando os dois falham. Em 1000 h, 0.600.` },
+                { sh: [[0, 4000, C.green, 'f2']], pts: [], vl: [[1000, '1/λ', C.blue], [1500, 'MTTF 1500 h', C.green]], c: RAW`O MTTF é a área sob $R(t)$: a verde é 50% maior que a azul. Mas a curva verde não é mais exponencial (começa achatada).` }] },
+            // ---------- Módulo 6 ----------
+            '6.1': { k: 'tree', root: 'campo', pl: false, br: [{ l: 'Qualitativa', ch: [{ l: 'Nominal' }, { l: 'Ordinal' }] }, { l: 'Quantitativa', ch: [{ l: 'Discreta' }, { l: 'Contínua' }] }], st: [
+                { hl: ['0', '1'], c: RAW`Primeira pergunta: faz sentido fazer contas com o valor? Se não, qualitativa (mesmo escrita com números).` },
+                { hl: ['0.0', '0.1'], c: RAW`Qualitativas: com ordem natural, ordinal; sem ordem, nominal.` },
+                { hl: ['1.0', '1.1'], c: RAW`Quantitativas: contagem dá discreta; medição dá contínua.` },
+                { hl: ['0.0', '0.1', '1.0', '1.1'], lt: { '0.0': 'nº do lote', '0.1': 'turno', '1.0': 'nº de riscos', '1.1': 'espessura' }, c: RAW`Os quatro campos da ficha, cada um em sua folha.` }] },
+            '6.2': { k: 'dots', data: [2, 3, 3, 4, 5, 6, 25], x0: 0, x1: 27, st: [
+                { marks: [[6.86, 'média 6.86', C.orange]], c: RAW`A média é o ponto de equilíbrio: o valor 25, isolado à direita, puxa-a para 6.86.` },
+                { marks: [[6.86, 'média 6.86', C.orange], [4, 'Md 4', C.green]], c: RAW`A mediana é o 4º dos 7 valores ordenados. Ela não se importa com quão longe está o 25.` },
+                { marks: [[6.86, 'média 6.86', C.orange], [4, 'Md 4', C.green], [3, 'Mo 3', C.violet]], c: RAW`A moda é o valor que se repete (os dois pontos empilhados em 3).` },
+                { out: [6], c: RAW`Um único reparo longo (vermelho) põe a média acima de 6 dos 7 valores. Para o "reparo típico", a mediana representa melhor.` }] },
+            '6.3': { k: 'dots', sets: [['A', [9.8, 10, 10.2, 10, 10], C.blue], ['B', [9, 10.5, 11, 9.5, 10], C.orange]], x0: 8.7, x1: 11.3, st: [
+                { marks: [[10, 'média 10', C.green]], c: RAW`As duas máquinas têm média 10.0, mas os pontos de B estão bem mais espalhados.` },
+                { dev: 10, c: RAW`Os traços são os desvios $x_i - \bar x$. Os de B são bem mais compridos; os de A quase somem.` },
+                { big: 's_A = 0.141 · s_B = 0.791', c: RAW`Elevando ao quadrado, somando e dividindo por $n - 1 = 4$: o desvio de B é mais de 5 vezes o de A.` },
+                { dev: null, tol: [9.5, 10.5], big: 'CV: 1.4% vs 7.9%', c: RAW`Com a tolerância $\pm 0.5$ (faixa verde), todos os pinos de A cabem; B tem pinos fora (9.0 e 11.0).` }] },
+            '6.4': { k: 'dots', data: [12, 15, 16, 18, 19, 20, 22, 23, 25, 40], x0: 0, x1: 44, st: [
+                { marks: [[19.5, 'Md 19.5', C.green]], c: RAW`10 valores (par): a mediana fica entre o 5º (19) e o 6º (20).` },
+                { marks: [[19.5, 'Md', C.green]], box: [16, 19.5, 23], c: RAW`$Q_1$ e $Q_3$ são as medianas de cada metade. A caixa vai de 16 a 23 e contém os 50% centrais.` },
+                { big: 'AIQ = 23 − 16 = 7', c: RAW`A largura da caixa é a amplitude interquartil: 7 s.` },
+                { marks: [[19.5, 'Md', C.green], [5.5, 'LI 5.5', C.red], [33.5, 'LS 33.5', C.red]], c: RAW`Cercas a 1.5 caixa de cada lado: $16 - 10.5 = 5.5$ e $23 + 10.5 = 33.5$.` },
+                { out: [9], wh: [12, 25], c: RAW`O 40 passa da cerca: é outlier (vermelho). Os bigodes vão até o último dado dentro das cercas: 12 e 25.` }] },
+            '6.5': { k: 'dots', data: [12.3, 12.6, 12.8, 13.1, 13.3, 13.5, 13.6, 13.8, 13.9, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.8, 14.9, 14.9, 15.0, 15.1, 15.2, 15.3, 15.4, 15.5, 15.5, 15.6, 15.7, 15.8, 15.9, 15.9, 16.0, 16.1, 16.2, 16.4, 16.5, 16.6, 16.8, 16.9, 17.0, 17.2, 17.3, 17.5, 17.6, 17.8, 18.0, 18.2, 18.5, 18.7, 18.9], x0: 11.5, x1: 19.5, st: [
+                { marks: [[12.3, 'mín 12.3', C.blue], [18.9, 'máx 18.9', C.blue]], big: 'A = 6.6 mm', c: RAW`As 50 medições (ilustrativas) espalhadas entre o mínimo e o máximo: amplitude 6.6 mm.` },
+                { big: 'k = 1 + 3.322·log₁₀ 50 ≈ 7', c: RAW`Sturges sugere 7 classes para 50 dados: poucas classes escondem a forma; muitas viram ruído.` },
+                { marks: range(12, 19).map(v => [v, '', C.violet]), big: 'h = 6.6/7 = 0.94 → 1.0 mm', c: RAW`Arredondando a largura para 1.0 mm, os cortes (roxo) caem em números inteiros, fáceis de ler.` },
+                { k: 'bars', x: ['12–13', '13–14', '14–15', '15–16', '16–17', '17–18', '18–19'], v: [3, 6, 10, 13, 9, 6, 3], d: 0, ymax: 16, col: C.blue, c: RAW`Contando os pontos de cada classe nasce o histograma: forma de sino, sugerindo processo estável.` }] },
+            '6.6': { k: 'bars', x: ['20 ⊢ 30', '30 ⊢ 40', '40 ⊢ 50'], v: [4, 10, 6], d: 0, ymax: 13, col: C.blue, st: [
+                { vl: ['xᵢ = 25 (4)', 'xᵢ = 35 (10)', 'xᵢ = 45 (6)'], c: RAW`Sem os dados brutos, cada classe é representada pelo seu centro (25, 35, 45), repetido $f_i$ vezes.` },
+                { mark: [[1.1, 'x̄ = 36', C.green]], c: RAW`Média ponderada: $720/20 = 36$. Fica um pouco à direita do centro da classe do meio, porque a última classe pesa mais que a primeira.` },
+                { vl: ['4·(−11)² = 484', '10·(−1)² = 10', '6·9² = 486'], c: RAW`Cada classe contribui com $f_i(x_i - \bar x)^2$. As pontas dominam; a classe do meio quase não contribui.` },
+                { vl: null, band: [1.1 - .718, 1.1 + .718, C.violet], big: 's² = 980/19 = 51.6 → s = 7.18', c: RAW`A faixa roxa é $\bar x \pm s = 36 \pm 7.18$.` }] }
+        });
+
+        Object.assign(EXFIG, {
+            // ---------- Módulo 7 ----------
+            '7.1': { k: 'curve', f: dN(12, .05), x0: 11.8, x1: 12.2, ymax: 9.5, yl: 'distribuição de X̄ (n = 50)', st: [
+                { vl: [[12, 'μ (fixo, desconhecido)', C.green]], c: RAW`O parâmetro $\mu$ é um número fixo: uma linha, não uma curva.` },
+                { sh: [[11.8, 12.2, C.blue]], c: RAW`O estimador $\bar X$ é uma variável aleatória: antes de sortear a amostra, ele pode cair em qualquer ponto sob a curva.` },
+                { sh: [], vl: [[12, 'μ', C.green], [12.03, 'x̄ = 12.03', C.orange], [11.98, 'outra: 11.98', C.violet]], c: RAW`Cada amostra sorteada produz uma estimativa: um ponto específico. Outra amostra, outro ponto.` },
+                { k: 'bars', x: ['σ² verdadeiro', 'E[σ̂²] dividindo por n (n = 5)'], v: [1, .8], d: 2, ymax: 1.2, col: [C.green, C.red], vl: ['σ²', '0.8 σ²'], c: RAW`Dividindo por $n$, em média o estimador acerta só 80% de $\sigma^2$. Dividir por $n - 1$ corrige esse viés.` }] },
+            '7.2': { k: 'curve', f: dN(500, 6), x0: 480, x1: 520, ymax: .08, yl: 'pesos individuais (σ = 6)', st: [
+                { c: RAW`A curva dos pacotes individuais: desvio de 6 g.` },
+                { f: dN(500, 2), f2: [dN(500, 6), C.gray, 'individual'], ymax: .23, yl: 'X̄ com n = 9', big: 'σ/√9 = 2 g', c: RAW`A média de 9 pacotes oscila bem menos: a curva fica 3 vezes mais estreita.` },
+                { f: dN(500, 1), ymax: .45, yl: 'X̄ com n = 36', big: 'σ/√36 = 1 g', c: RAW`Com 36, mais estreita ainda, mas só pela metade: quadruplicar $n$ divide o erro padrão por 2.` },
+                { f: dN(500, .8), ymax: .55, yl: 'n = 36 de um lote de N = 100', big: '1 × √(64/99) = 0.80 g', c: RAW`Sem reposição de um lote pequeno, ainda menos incerteza: a amostra é uma fração grande do lote.` }] },
+            '7.3': { k: 'curve', f: dU(0, 1), x0: -.1, x1: 1.1, ymax: 1.4, yl: 'um erro: U(0, 1)', st: [
+                { c: RAW`Um único erro de arredondamento: distribuição plana, nada de sino.` },
+                { f: dN(.5, .0833), f2: [dU(0, 1), C.gray, 'U(0, 1)'], ymax: 5.3, yl: 'média de 12 erros', big: 'σ/√12 = 0.0833', c: RAW`A média de 12 erros já tem forma de sino (TCL), centrada em 0.5 e bem mais estreita.` },
+                { vl: [[.6, '0.6 → z = 1.2', C.red]], c: RAW`0.6 está $0.1/0.0833 = 1.2$ erros padrão acima da média.` },
+                { sh: [[.6, 1.1, C.orange]], big: '1 − Φ(1.2) = 0.115', c: RAW`A cauda laranja acima de 0.6: cerca de 11.5%.` }] },
+            '7.4': { k: 'ints', x0: 46.5, x1: 54, st: [
+                { marks: [[50, 'x̄ = 50', C.green]], rows: [['x̄', 50, 50, C.green]], big: 'σ/√n = 4/4 = 1', c: RAW`O centro é a média amostral. O erro padrão (1) é a régua de todas as margens.` },
+                { rows: [['90%', 48.36, 51.64, C.blue], ['95%', 48.04, 51.96, C.violet], ['99%', 47.42, 52.58, C.red]], c: RAW`Mais confiança, intervalo mais largo: a margem é $z \times 1$, com $z$ = 1.645, 1.960 e 2.576.` },
+                { x0: .03, x1: .12, d: 3, marks: [[.075, 'p̂ = 0.075', C.green]], rows: [['p̂', .075, .075, C.green]], c: RAW`Para a proporção, o centro é $\hat p = 30/400 = 0.075$.` },
+                { rows: [['IC 95%', .049, .101, C.violet]], big: '0.075 ± 0.026', c: RAW`Margem $1.96\sqrt{0.075 \times 0.925/400} = 0.026$.` }] },
+            '7.5': { k: 'curve', f: dN(0, .707), f2: [dN(0, 1), C.orange, 'X₁ sozinho'], x0: -3.5, x1: 3.5, ymax: .62, yl: 'X̄ com n = 2', st: [
+                { c: RAW`Os dois estimadores estão centrados no valor certo (sem viés), mas a curva azul de $\bar X$ é mais estreita: metade da variância.` },
+                { k: 'stack', rows: [['A', [[4, C.blue, 'Var 4']]], ['B', [[2, C.blue, 'Var 2']]]], max: 4.5, c: RAW`Caso (ii): EQM soma a variância (azul) com o viés ao quadrado.` },
+                { k: 'stack', rows: [['A', [[4, C.blue, 'Var 4']]], ['B', [[2, C.blue, 'Var 2'], [1, C.red, 'viés² 1']]]], max: 4.5, big: 'EQM: A = 4 · B = 3', c: RAW`B ganha o pedaço vermelho do viés, mas a barra inteira ainda é menor que a de A.` }] },
+            '7.6': { k: 'curve', f: dT(9), f2: [dN(0, 1), C.orange, 'normal'], x0: -4, x1: 4, ymax: .45, yl: 't com 9 gl', st: [
+                { c: RAW`A $t$ (azul) tem caudas mais pesadas que a normal (laranja): reflete a incerteza extra de estimar $\sigma$.` },
+                { sh: [[-4, -2.262, C.blue], [2.262, 4, C.blue]], vl: [[-2.262, '−2.262', C.blue], [2.262, '2.262', C.blue], [1.96, '1.96', C.orange]], c: RAW`Para deixar 2.5% em cada cauda, a $t$ precisa ir até 2.262, mais longe que o 1.96 da normal.` },
+                { k: 'ints', x0: 11.5, x1: 13.3, marks: [[12.4, 'x̄ = 12.4', C.green]], rows: [['x̄', 12.4, 12.4, C.green]], big: 's/√n = 0.253', c: RAW`O erro padrão estimado é $0.8/\sqrt{10} = 0.253$.` },
+                { rows: [['IC 95% com t', 11.83, 12.97, C.blue], ['se fosse z', 11.90, 12.90, C.gray]], c: RAW`O intervalo com $t$ é um pouco mais largo que o com $z$: é o preço de não conhecer $\sigma$.` }] },
+            '7.7': { k: 'curve', f: dChi(9), x0: 0, x1: 26, ymax: .12, yl: 'χ² com 9 gl', st: [
+                { sh: [[0, 2.7, C.red], [19.023, 26, C.red]], vl: [[2.7, '2.700', C.red], [19.023, '19.023', C.red]], c: RAW`A qui-quadrado é assimétrica: os dois valores críticos (2.5% em cada cauda) não ficam à mesma distância do centro.` },
+                { k: 'ints', x0: 0, x1: 2.6, marks: [[.64, 's² = 0.64', C.green]], rows: [['σ²', .303, 2.133, C.blue]], d: 3, c: RAW`Dividindo 5.76 pelos críticos, o maior dá o limite inferior. Note como 0.64 fica perto da ponta esquerda.` },
+                { k: 'ints', x0: 0, x1: 1.8, d: 2, marks: [[.8, 's = 0.8', C.green], [1, 'requisito 1', C.red]], rows: [['σ', .55, 1.46, C.blue]], c: RAW`Tirando a raiz: $\sigma \in [0.55; 1.46]$.` },
+                { big: 'requisito não comprovado', c: RAW`O intervalo atravessa a linha vermelha: $\sigma$ pode ser maior que 1. Não dá para garantir o requisito com 10 medições.` }] },
+            '7.8': { k: 'curve', f: p => p * (1 - p), x0: 0, x1: 1, ymax: .3, yl: 'p(1 − p)', st: [
+                { c: RAW`O tamanho de amostra é proporcional a $p(1-p)$, que é a variância de uma resposta sim/não.` },
+                { pts: [[.5, .25, 'pior caso: n = 1068', C.red]], c: RAW`Sem informação, usa-se o topo da parábola, $p = 0.5$: o caso mais exigente.` },
+                { pts: [[.5, .25, 'n = 1068', C.red], [.1, .09, 'piloto: n = 385', C.green]], c: RAW`Com $\hat p \approx 0.10$ do piloto, a parábola está bem mais baixa: a amostra cai quase dois terços.` }] },
+            // ---------- Módulo 8 ----------
+            '8.1': { k: 'curve', f: dN(500, 4), x0: 484, x1: 514, ymax: .11, yl: 'X̄ se H₀ for verdadeira', st: [
+                { vl: [[500, '500 MPa (alegação)', C.green]], c: RAW`O valor de referência é 500 MPa. A curva mostra como $\bar X$ variaria se a alegação fosse verdadeira (ilustração com erro padrão 4).` },
+                { c: RAW`$H_0: \mu = 500$ fica com a igualdade: é a hipótese mantida até prova em contrário.` },
+                { sh: [[484, 493.4, C.red]], vl: [[500, 'H₀', C.green], [493.4, 'crítico', C.red]], c: RAW`$H_1: \mu &lt; 500$: só valores de $\bar X$ <strong>baixos</strong> contam como evidência. A região de rejeição fica na cauda esquerda.` },
+                { c: RAW`Cair na área vermelha: rejeita $H_0$. Cair fora: evidência insuficiente, o que não prova que $\mu = 500$.` }] },
+            '8.2': { k: 'curve', f: dN(100, 2), x0: 93, x1: 112, ymax: .23, yl: 'X̄ sob H₀ (μ = 100)', st: [
+                { big: 'σ/√n = 10/5 = 2', c: RAW`Distribuição de $\bar X$ se $H_0$ for verdadeira: centro 100, erro padrão 2.` },
+                { sh: [[103.29, 112, C.red]], vl: [[103.29, '103.29', C.text]], c: RAW`Rejeita-se acima de $100 + 1.645 \times 2 = 103.29$. A área vermelha é $\alpha = 5\%$: alarme falso.` },
+                { f2: [dN(105, 2), C.violet, 'μ = 105'], sh: [[103.29, 112, C.red], [93, 103.29, C.amber, 'f2']], big: 'β = Φ(−0.855) = 0.196', c: RAW`Se a média real é 105 (curva roxa), a área âmbar à esquerda do crítico é $\beta$: o teste não detecta a mudança.` },
+                { sh: [[103.29, 112, C.red], [103.29, 112, C.green, 'f2'], [93, 103.29, C.amber, 'f2']], big: 'poder = 0.804', c: RAW`A área verde sob a roxa é o poder: 80% de chance de detectar $\mu = 105$.` }] },
+            '8.3': { k: 'curve', f: dN(0, 1), x0: -4, x1: 4, ymax: .45, st: [
+                { sh: [[1.881, 4, C.orange]], vl: [[1.881, 'estatística observada', C.orange]], big: 'p-valor = 0.03', c: RAW`O p-valor é a área laranja: a chance de um resultado tão ou mais extremo, se $H_0$ for verdadeira.` },
+                { sh: [[1.645, 4, C.red], [1.881, 4, C.orange]], vl: [[1.645, 'α = 0.05', C.red], [1.881, 'obs.', C.orange]], big: '0.03 ≤ 0.05: rejeita', c: RAW`Com $\alpha = 0.05$ a região crítica (vermelha) começa antes do observado: rejeita-se.` },
+                { sh: [[2.326, 4, C.red], [1.881, 4, C.orange]], vl: [[2.326, 'α = 0.01', C.red], [1.881, 'obs.', C.orange]], big: '0.03 > 0.01: não rejeita', c: RAW`Com $\alpha = 0.01$ a região crítica encolhe para além de 2.326: o observado fica de fora.` },
+                { sh: [[1.881, 4, C.orange]], vl: [[1.881, 'obs.', C.orange]], c: RAW`A curva supõe $H_0$ verdadeira. Por isso o p-valor não é "a chance de $H_0$ ser verdadeira".` }] },
+            '8.4': { k: 'curve', f: dT(11), x0: -4, x1: 4, ymax: .45, yl: 't com 11 gl', st: [
+                { vl: [[0, 'μ₀ = 50', C.green]], c: RAW`$H_1: \mu &lt; 50$: só a cauda esquerda interessa.` },
+                { c: RAW`$\sigma$ desconhecido: a referência é a $t$ com $n - 1 = 11$ graus de liberdade.` },
+                { vl: [[-1.848, 't = −1.848', C.violet]], c: RAW`A média 49.2 está 1.848 erros padrão abaixo de 50.` },
+                { sh: [[-4, -1.796, C.red]], vl: [[-1.796, 'crítico −1.796', C.red], [-1.848, 't calc', C.violet]], c: RAW`A região de rejeição (5% na cauda esquerda) começa em $-1.796$.` },
+                { big: 'rejeita H₀', c: RAW`O $t$ calculado cai dentro da área vermelha, por pouco. Num teste bilateral (crítico $\pm 2.201$), não cairia.` }] },
+            '8.5': { k: 'bars', x: ['Solda', 'Montagem', 'Material'], v: [90, 70, 40], d: 0, ymax: 120, col: C.blue, st: [
+                { c: RAW`Defeitos observados no mês. $H_0$: a divisão continua 50/30/20.` },
+                { hline: [[100, 'E solda 100', C.orange], [60, 'E mont. 60', C.orange], [40, 'E mat. 40', C.orange]], c: RAW`Linhas laranja: o que se esperaria sob $H_0$ ($200 \times p_i$). Solda veio abaixo, montagem acima, material igual.` },
+                { vl: ['(90−100)²/100 = 1', '(70−60)²/60 = 1.667', '0'], big: 'χ² = 2.667', c: RAW`Cada barra contribui com (diferença)²/esperado. Somando, $\chi^2 = 2.667$.` },
+                { k: 'curve', f: dChi(2), x0: 0, x1: 10, ymax: .55, yl: 'χ² com 2 gl', sh: [[5.991, 10, C.red]], vl: [[5.991, 'crítico 5.991', C.red]], c: RAW`Com $k - 1 = 2$ gl, a região de rejeição começa em 5.991.` },
+                { vl: [[5.991, 'crítico', C.red], [2.667, 'χ² = 2.667', C.violet]], big: 'não rejeita H₀', c: RAW`O valor calculado fica longe da área vermelha: as diferenças cabem no acaso.` }] },
+            '8.6': { k: 'curve', f: dN(0, 1), x0: -4, x1: 4, ymax: .45, st: [
+                { sh: [[2.1, 4, C.orange]], vl: [[2.1, 'z = 2.1', C.orange]], big: '1 − Φ(2.1) = 0.0179', c: RAW`A área acima de 2.1.` },
+                { big: 'unilateral: p = 0.018', c: RAW`Com $H_1: \mu &gt; \mu_0$, só essa cauda conta.` },
+                { sh: [[2.1, 4, C.orange], [-4, -2.1, C.orange]], vl: [[2.1, '2.1', C.orange], [-2.1, '−2.1', C.orange]], big: 'bilateral: p = 0.036', c: RAW`Com $H_1: \mu \ne \mu_0$, um desvio igual do outro lado também conta: dobra.` }] },
+            '8.7': { k: 'curve', f: dChi(9), x0: 0, x1: 22, ymax: .12, yl: 'χ² com 9 gl', st: [
+                { c: RAW`$H_1: \sigma^2 &lt; 1$: procura-se evidência de variância <strong>menor</strong>.` },
+                { vl: [[2.25, 'χ² = 2.25', C.violet]], c: RAW`$9 \times 0.25 / 1 = 2.25$: bem à esquerda do centro da curva.` },
+                { sh: [[0, 3.325, C.red]], vl: [[3.325, 'crítico 3.325', C.red], [2.25, 'calc', C.violet]], c: RAW`Como $H_1$ é "menor", a rejeição fica na cauda esquerda (5%).` },
+                { big: 'rejeita H₀', c: RAW`2.25 cai dentro da área vermelha: a melhoria é significativa.` }] },
+            '8.8': { k: 'curve', f: dN(.05, .0109), x0: .015, x1: .095, ymax: 40, yl: 'p̂ se H₀ (p = 0.05)', st: [
+                { vl: [[.05, 'p₀ = 0.05', C.green]], c: RAW`$H_1: p &gt; 0.05$: a evidência contra o fornecedor está na cauda direita.` },
+                { big: 'np₀ = 20 · n(1−p₀) = 380', c: RAW`As duas contagens esperadas passam de 5: a curva normal é uma boa aproximação.` },
+                { sh: [[.05 - .0109, .05 + .0109, C.violet]], big: 'EP = 0.0109', c: RAW`O erro padrão usa $p_0$ (faixa roxa $\pm 1$ EP), porque toda a conta supõe $H_0$.` },
+                { sh: [], vl: [[.05, 'p₀', C.green], [.075, 'p̂ = 0.075 (z = 2.29)', C.violet]], c: RAW`A proporção observada está 2.29 erros padrão acima do contratado.` },
+                { sh: [[.0679, .095, C.red]], vl: [[.0679, 'crítico', C.red], [.075, 'p̂', C.violet]], big: 'rejeita · p = 0.011', c: RAW`O crítico fica em $0.05 + 1.645 \times 0.0109 = 0.068$. O observado passou dele.` }] },
+            '8.9': { k: 'curve', f: dN(100, 2), f2: [dN(105, 2), C.violet, 'μ = 105'], x0: 93, x1: 111, ymax: .26, st: [
+                { sh: [[93, 103.29, C.amber, 'f2']], vl: [[103.29, 'n = 25', C.text]], big: 'n = 25 → poder 0.80', c: RAW`Com $n = 25$, a área âmbar ($\beta$) ainda é 20%. Para poder 0.90, as curvas precisam se separar mais.` },
+                { f: dN(100, 1.69), f2: [dN(105, 1.69), C.violet, 'μ = 105'], ymax: .3, sh: [[93, 102.78, C.amber, 'f2']], vl: [[102.78, 'crítico', C.text]], big: 'n = (2.927 × 10 / 5)² = 34.3', c: RAW`Aumentar $n$ estreita as duas curvas. A fórmula pede $n = 34.3$.` },
+                { big: 'n = 35 → β ≈ 0.10', c: RAW`Arredonda-se para cima: $n = 35$ garante pelo menos 90% de poder.` },
+                { f: dN(100, 1), f2: [dN(105, 1), C.violet, 'μ = 105'], ymax: .45, sh: [[93, 101.645, C.amber, 'f2']], vl: [[101.645, 'n = 100', C.text]], big: 'β = 0.0004', c: RAW`Com $n = 100$ as curvas quase não se tocam: o poder vai a praticamente 1.` }] },
+            '8.10': { k: 'stack', rows: [['graus de liberdade', [[6, C.blue, 'k = 6 classes']]]], max: 6, st: [
+                { c: RAW`Começa-se com uma "unidade" de informação por classe.` },
+                { rows: [['graus de liberdade', [[3, C.green, 'gl = 3'], [1, C.gray, '−1 totais'], [2, C.red, '−2 (μ, σ)']]]], big: 'gl = 6 − 1 − 2 = 3', c: RAW`Perde-se 1 porque os totais têm que bater e 2 porque $\mu$ e $\sigma$ foram estimados dos próprios dados.` },
+                { k: 'curve', f: dChi(3), x0: 0, x1: 14, ymax: .27, yl: 'χ² com 3 gl', sh: [[7.815, 14, C.red]], vl: [[7.815, 'crítico 7.815', C.red]], c: RAW`O crítico a 5% com 3 gl é 7.815. Juntar classes com $E_i &lt; 5$ reduz $k$ e o gl.` }] },
+            // ---------- Módulo 9 ----------
+            '9.1': { k: 'curve', f: dN(0, 1), x0: -5, x1: 5, ymax: .45, yl: 'sem ajustes: σ = 1', st: [
+                { c: RAW`Processo só com variação comum: desvio 1.` },
+                { f: dN(0, 1.41), f2: [dN(0, 1), C.gray, 'sem ajustes'], yl: 'reajustando a cada peça', big: 'σ = √2 = 1.41', c: RAW`Reagir ao acaso soma um segundo erro aleatório: a curva alarga 41%.` }] },
+            '9.2': { k: 'curve', f: dN(10, .1), f2: [dN(10, .2), C.gray, 'peças individuais'], x0: 9.4, x1: 10.6, ymax: 4.3, yl: 'X̄ (n = 4)', st: [
+                { big: 'σ/√4 = 0.1', c: RAW`O gráfico acompanha a média de 4 peças, mais estável que as peças individuais (cinza).` },
+                { vl: [[9.7, 'LIC 9.7', C.red], [10.3, 'LSC 10.3', C.red]], c: RAW`Limites a $\pm 3$ erros padrão: 9.7 e 10.3.` },
+                { sh: [[9.4, 9.7, C.red], [10.3, 10.6, C.red]], big: '0.0027: 1 em 370', c: RAW`As caudas além dos limites são minúsculas: um alarme falso a cada 370 subgrupos.` },
+                { vl: [[9.8, '2σ', C.orange], [10.2, '2σ', C.orange]], sh: [[9.4, 9.8, C.orange], [10.2, 10.6, C.orange]], big: '0.0455: 1 em 22', c: RAW`Com $\pm 2\sigma$ as caudas (laranja) são 17 vezes maiores: alarme falso quase toda semana.` }] },
+            '9.3': { k: 'series', y: [10.2, 9.9, 10.1, 10.4, 9.9], ymin: 9.6, ymax: 10.6, yl: 'médias X̄', st: [
+                { lines: [[10.1, 'X̿', C.green]], c: RAW`Linha central: a média das médias, 10.1. (Para o gráfico R, $\bar R = 0.5$.)` },
+                { y: [.4, .6, .5, .3, .7], ymin: -.1, ymax: 1.3, yl: 'amplitudes R', lines: [[.5, 'R̄', C.green], [1.141, 'LSC', C.red], [0, 'LIC', C.red]], c: RAW`Gráfico R primeiro: todas as amplitudes ficam abaixo de 1.141. A variabilidade é estável.` },
+                { y: [10.2, 9.9, 10.1, 10.4, 9.9], ymin: 9.6, ymax: 10.6, yl: 'médias X̄', lines: [[10.1, 'X̿', C.green], [10.465, 'LSC', C.red], [9.736, 'LIC', C.red]], c: RAW`Com a variabilidade validada, os limites de $\bar X$ são $10.1 \pm 0.365$.` },
+                { hl: [3], hc: C.amber, c: RAW`Todas as médias dentro. O 10.4 (âmbar) chega perto do limite, mas não passa.` }] },
+            '9.4': { k: 'curve', f: dN(.04, .0196), x0: -.02, x1: .13, ymax: 22, yl: 'p̂ com n = 100', st: [
+                { vl: [[.04, 'p̄ = 0.04', C.green]], c: RAW`A fração defeituosa diária oscila em torno de 4%. A largura da curva depende de $n$.` },
+                { vl: [[.04, 'p̄', C.green], [.099, 'LSC 0.099', C.red], [.07, '7%', C.violet]], sh: [[.099, .13, C.red]], c: RAW`Com $n = 100$, o limite fica em 9.9%: 7% está dentro, pode ser acaso.` },
+                { f: dN(.04, .0098), ymax: 43, yl: 'p̂ com n = 400', vl: [[.04, 'p̄', C.green], [.069, 'LSC 0.069', C.red], [.07, '7%', C.violet]], sh: [[.069, .13, C.red]], c: RAW`Com $n = 400$ a curva estreita e o limite cai para 6.9%: o mesmo 7% passa a ser sinal.` }] },
+            '9.5': { k: 'curve', f: dN(10, .05), x0: 9.6, x1: 10.4, ymax: 9, st: [
+                { vl: [[9.7, 'LIE', C.red], [10.3, 'LSE', C.red]], big: 'Cp = 0.6/0.3 = 2.0', c: RAW`Se estivesse centrado, o processo caberia folgado na especificação: a curva ocupa metade da largura.` },
+                { f: dN(10.2, .05), vl: [[9.7, 'LIE', C.red], [10.3, 'LSE', C.red], [10.2, 'μ = 10.2', C.violet]], big: 'Cpk = 0.1/0.15 = 0.67', c: RAW`Mas a média está em 10.2: a cauda direita encosta no LSE. $C_{pk}$ mede a distância ao limite mais próximo.` },
+                { sh: [[10.3, 10.4, C.red]], big: '1 − Φ(2) = 2.3% fora', c: RAW`A cauda vermelha além do LSE: 2.3% das peças. Recentrar resolveria.` }] },
+            '9.6': { k: 'series', y: [.11, .14, .09, .13, .12, .1, .15, .12], ymin: 0, ymax: .25, yl: 'desvios s (n = 8)', lines: [[.218, 'LSC', C.red], [.12, 's̄', C.green], [.022, 'LIC', C.red]], st: [
+                { c: RAW`Gráfico S (valores ilustrativos): com $n = 8$ o LIC é positivo, então uma queda de variabilidade também aparece.` },
+                { y: [25.05, 24.93, 25.02, 24.98, 25.08, 24.95, 25.01, 24.97], ymin: 24.83, ymax: 25.17, yl: 'médias X̄', lines: [[25.132, 'LSC', C.red], [25, 'X̿', C.green], [24.868, 'LIC', C.red]], c: RAW`Gráfico $\bar X$: $25.00 \pm 1.099 \times 0.12 = [24.868; 25.132]$.` }] },
+            '9.7': { k: 'curve', f: dN(0, 1), x0: -6, x1: 6, ymax: .45, yl: 'curto prazo: σ = 1.0', st: [
+                { vl: [[-4, 'LIE', C.red], [4, 'LSE', C.red]], big: 'Cp = 8/6 = 1.33', c: RAW`Dentro dos subgrupos (curto prazo), a variação cabe com folga na especificação de 8 mm.` },
+                { f: dN(0, 1.5), f2: [dN(0, 1), C.gray, 'curto prazo'], yl: 'longo prazo: s = 1.5', sh: [[-6, -4, C.red], [4, 6, C.red]], big: 'Pp = 8/9 = 0.89', c: RAW`Com as oscilações entre turnos, a curva alarga e passa dos limites. A distância entre $C_p$ e $P_p$ é o ganho possível de estabilizar.` }] },
+            '9.8': { k: 'bars', x: range(0, 12).map(String), v: poiPmf(4, 12), d: null, ymax: .25, col: range(0, 12).map(k => k > 10 ? C.red : C.blue), mark: [[10, 'LSC 10', C.red]], yl: 'Gráfico c: Poisson(4)', st: [
+                { c: RAW`Defeitos por placa seguem Poisson com média 4; como variância = média, $\sigma = 2$ e $LSC = 4 + 3 \times 2 = 10$.` },
+                { x: range(0, 10).map(String), v: binPmf(50, .06).slice(0, 11), col: range(0, 10).map(k => k > 8 ? C.red : C.blue), mark: [[8.04, 'LSC 8.04', C.red]], yl: 'Gráfico np: Bin(50; 0.06)', c: RAW`Defeituosas em 50 peças: centro 3 e limite 8.04. Um subgrupo com 9 (vermelho) é sinal.` }] },
+            '9.9': { k: 'series', y: [.5, 1.2, 1.4, .8, 1.1, .3, .9, 1.6], ymin: -3.5, ymax: 3.5, yl: 'médias (em σ)', lines: [[3, 'LSC', C.red], [0, 'LC', C.green], [-3, 'LIC', C.red]], st: [
+                { c: RAW`Nenhum ponto passa de $\pm 3$: pela regra 1, nada a fazer.` },
+                { hl: [0, 1, 2, 3, 4, 5, 6, 7], hc: C.amber, big: '0.5⁸ = 0.0039', c: RAW`Mas os 8 pontos estão todos acima da linha central. Por acaso, isso ocorreria 4 vezes em 1000: sinal de deslocamento.` }] }
+        });
+
+        const FIG_H = { bars: 270, stack: 230, table: 260, tree: 290, venn2: 270, icons: 260, curve: 280, cdf: 320, series: 270, dots: 240, ints: 240 };
+        Object.entries(EXFIG).forEach(([k, F]) => ANIM['ex:' + k] = { t: 'Gráfico do exemplo, passo a passo', w: 'fig', o: F, h: F.h || Math.max(...[F.k, ...F.st.map(s => s.k)].filter(Boolean).map(t => FIG_H[t])) });
+        // Coloca o gráfico entre "O que se pede" e "Resolução passo a passo"
+        const exWithFig = (num, html) => html && ANIM['ex:' + num] ? html.replace('<div class="ex-label">Resolução passo a passo</div>', animShell('ex:' + num) + '<div class="ex-label">Resolução passo a passo</div>') : html || '';
 
         // ---------- montagem e laço de animação ----------
         function mountAnim(box) {
             const a = ANIM[box.dataset.anim], stage = box.querySelector('.anim-stage'), cv = stage.querySelector('canvas'), g = cv.getContext('2d');
-            const S = { g, H: a.h || 260, W: 0, t: 0, play: false, ctrl: box.querySelector('.anim-ctrl'), readEl: box.querySelector('.anim-read') };
-            S.read = html => { if (S._r !== html) S.readEl.innerHTML = S._r = html; };
+            const S = { box, g, H: a.h || 260, W: 0, t: 0, play: false, ctrl: box.querySelector('.anim-ctrl'), readEl: box.querySelector('.anim-read') };
+            S.read = (html, math) => { if (S._r !== html) { S.readEl.innerHTML = S._r = html; if (math) mathIn(S.readEl); } };
             S.size = () => { const w = stage.clientWidth, d = devicePixelRatio || 1; cv.width = w * d; cv.height = S.H * d; cv.style.height = S.H + 'px'; g.setTransform(d, 0, 0, d, 0, 0); S.W = w; };
             S.slider = (lab, min, max, step, val, fmt = v => v) => {
                 const w = document.createElement('label'); w.className = 'anim-sl';
