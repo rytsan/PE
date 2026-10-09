@@ -1494,6 +1494,61 @@
         .xref:hover { border-bottom-style: solid; }
         .module-body h3[id] { scroll-margin-top: 110px; }
 
+        /* ===== Rascunho dos exercícios ===== */
+        .scratch { margin: .9rem 0 1rem; border: 1px dashed #cbd5e1; border-radius: 10px; background: #fff; overflow: hidden; }
+        .scratch-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .75rem; padding: .45rem .75rem; background: #f8fafc; border-bottom: 1px dashed #cbd5e1; }
+        .scratch-title { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #475569; }
+        .scratch-hint { flex: 1 1 16rem; font-size: .78rem; color: #64748b; line-height: 1.4; }
+        .scratch-hint code { font-size: .95em; background: #eef2f7; padding: 0 .25rem; border-radius: 4px; }
+        .scratch-actions { display: flex; gap: .35rem; }
+        .scratch-btn { font: inherit; font-size: .78rem; font-weight: 600; padding: .25rem .6rem; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #334155; cursor: pointer; }
+        .scratch-btn:hover { border-color: #1d4ed8; color: #1d4ed8; }
+        .scratch-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; background-image: linear-gradient(#eef2f7 1px, transparent 1px); background-size: 100% 1.7rem; background-position: 0 calc(.5rem - 1px); }
+        .scratch textarea, .scratch-out { font-family: 'Fira Code', ui-monospace, monospace; font-size: .9rem; line-height: 1.7rem; padding: .5rem .75rem; margin: 0; }
+        .scratch textarea { width: 100%; min-height: 5.6rem; border: none; outline: none; resize: vertical; background: transparent; color: #0f172a; overflow-x: auto; }
+        .scratch textarea:focus { background: rgba(29, 78, 216, .03); }
+        .scratch-out { white-space: pre; color: #15803d; font-weight: 600; text-align: right; border-left: 1px dashed #e2e8f0; min-width: 6rem; user-select: all; }
+        .dyn-box .scratch, .exercise-item .scratch { background: #fff; }
+        #examScratch .scratch { margin-top: 1.25rem; }
+
+        /* ===== Calculadora (aba e painel flutuante) ===== */
+        .calc-panel-title { font-size: 1.15rem; font-weight: 700; margin-bottom: .25rem; }
+        .calc-panel-sub { font-size: .88rem; color: var(--text-muted); margin-bottom: 1rem; }
+        .calcw-hist { max-height: 9rem; overflow-y: auto; font-family: 'Fira Code', ui-monospace, monospace; font-size: .85rem; }
+        .calcw-hist:empty { display: none; }
+        .calcw-row { display: flex; justify-content: space-between; gap: .75rem; padding: .2rem 0; border-bottom: 1px dashed #e2e8f0; }
+        .calcw-e { color: #64748b; overflow-wrap: anywhere; }
+        .calcw-v { font: inherit; font-weight: 700; color: #1d4ed8; background: none; border: none; cursor: pointer; padding: 0; white-space: nowrap; }
+        .calcw-v:hover { text-decoration: underline; }
+        .calcw-in { width: 100%; margin-top: .5rem; padding: .6rem .75rem; font-family: 'Fira Code', ui-monospace, monospace; font-size: 1.05rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; color: #0f172a; }
+        .calcw-in:focus { outline: 2px solid #93c5fd; border-color: #1d4ed8; background: #fff; }
+        .calcw-res { min-height: 1.9rem; padding: .25rem .2rem; text-align: right; font-family: 'Fira Code', ui-monospace, monospace; font-size: 1.15rem; font-weight: 700; color: #15803d; }
+        .calcw-res.bad { color: #94a3b8; font-size: .85rem; font-weight: 500; }
+        .calcw-keys { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .3rem; }
+        .calcw-k { font: inherit; font-size: .95rem; padding: .5rem .1rem; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #0f172a; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .calcw-k:hover { background: #f1f5f9; }
+        .calcw-k.fn { font-size: .78rem; color: #1d4ed8; background: #eff6ff; border-color: #bfdbfe; }
+        .calcw-k.act { font-size: .8rem; color: #475569; background: #f8fafc; }
+        .calcw-k.eq { background: #1d4ed8; border-color: #1d4ed8; color: #fff; font-weight: 700; }
+        .calcw-k[data-v="send"] { grid-column: span 2; }
+        .calcw-help { margin-top: .6rem; font-size: .8rem; color: #475569; }
+        .calcw-help summary { cursor: pointer; font-weight: 600; }
+        .calcw-help ul { margin: .4rem 0 0 1.1rem; line-height: 1.55; }
+        .calcw-help code { font-size: .95em; background: #eef2f7; padding: 0 .2rem; border-radius: 4px; }
+        #calcFab { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 950; padding: .65rem 1rem; border: none; border-radius: 999px; background: #1d4ed8; color: #fff; font: inherit; font-weight: 700; font-size: .9rem; box-shadow: 0 6px 18px rgba(29, 78, 216, .35); cursor: pointer; }
+        #calcFab[aria-expanded="true"] { background: #1e3a8a; }
+        body[data-tab="calc"] #calcFab, body[data-tab="calc"] #calcFloat { display: none; }
+        #calcFloat { position: fixed; right: 1.25rem; bottom: 4.6rem; z-index: 950; width: 360px; max-height: calc(100vh - 7rem); overflow-y: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 14px; box-shadow: 0 18px 50px rgba(15, 23, 42, .25); padding: .75rem .9rem .9rem; }
+        #calcFloat[hidden] { display: none; }
+        .calcf-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .25rem; }
+        .calcf-head button { border: none; background: none; font-size: 1.4rem; line-height: 1; color: #64748b; cursor: pointer; padding: 0 .25rem; }
+        @media (max-width: 640px) {
+            #calcFloat { left: .5rem; right: .5rem; width: auto; bottom: 4.2rem; max-height: 70vh; }
+            #calcFab { right: .75rem; bottom: .75rem; }
+            .scratch-out { min-width: 4.5rem; }
+        }
+        @media print { #calcFab, #calcFloat, .scratch { display: none !important; } }
+
         /* ===== Leitura limpa: coluna de texto, subtópicos marcados, quadros auxiliares discretos ===== */
         .theory-section { font-size: 1.05rem; line-height: 1.8; }
         .theory-section > p, .theory-section > ul, .theory-section > ol { max-width: 46rem; }
@@ -1536,6 +1591,11 @@
     </style>
 </head>
 <body>
+    <button type="button" id="calcFab" onclick="toggleCalc()" aria-expanded="false" aria-controls="calcFloat">Calculadora</button>
+    <div id="calcFloat" role="dialog" aria-label="Calculadora" hidden>
+        <div class="calcf-head"><strong>Calculadora</strong><button type="button" onclick="toggleCalc()" aria-label="Fechar calculadora">×</button></div>
+        <div id="calcFloatMount"></div>
+    </div>
 
     <!-- Header Navigation -->
     <header class="header">
@@ -1663,6 +1723,7 @@
                         <div class="options-list" id="optionsContainer">
                             <!-- Radio options -->
                         </div>
+                        <div id="examScratch"></div>
 
                         <div class="question-nav-actions">
                             <button class="btn-nav" id="btnPrevQ" onclick="prevQuestion()">
@@ -2016,45 +2077,9 @@
         <!-- ================= TAB 4: CALCULADORA RÁPIDA ================= -->
         <section id="tabContentCalc" class="tab-content">
             <div class="calc-panel">
-                <div style="font-size:1.15rem; font-weight:700; margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
-                    <span>Calculadora Científica Rápida</span>
-                </div>
-
-                <div class="calc-display">
-                    <div class="calc-sub" id="calcSub"></div>
-                    <div class="calc-main" id="calcMain">0</div>
-                </div>
-
-                <div class="calc-grid">
-                    <button class="calc-btn clear" onclick="calcAction('clear')">C</button>
-                    <button class="calc-btn fn" onclick="calcAction('backspace')"></button>
-                    <button class="calc-btn fn" onclick="calcAction('fact')">n!</button>
-                    <button class="calc-btn op" onclick="calcAction('/')">÷</button>
-
-                    <button class="calc-btn fn" onclick="calcAction('sqrt')">√x</button>
-                    <button class="calc-btn fn" onclick="calcAction('sqr')">x²</button>
-                    <button class="calc-btn fn" onclick="calcAction('exp')">eˣ</button>
-                    <button class="calc-btn op" onclick="calcAction('*')">×</button>
-
-                    <button class="calc-btn" onclick="calcNum('7')">7</button>
-                    <button class="calc-btn" onclick="calcNum('8')">8</button>
-                    <button class="calc-btn" onclick="calcNum('9')">9</button>
-                    <button class="calc-btn op" onclick="calcAction('-')">-</button>
-
-                    <button class="calc-btn" onclick="calcNum('4')">4</button>
-                    <button class="calc-btn" onclick="calcNum('5')">5</button>
-                    <button class="calc-btn" onclick="calcNum('6')">6</button>
-                    <button class="calc-btn op" onclick="calcAction('+')">+</button>
-
-                    <button class="calc-btn" onclick="calcNum('1')">1</button>
-                    <button class="calc-btn" onclick="calcNum('2')">2</button>
-                    <button class="calc-btn" onclick="calcNum('3')">3</button>
-                    <button class="calc-btn fn" onclick="calcAction('ln')">ln</button>
-
-                    <button class="calc-btn" onclick="calcNum('0')">0</button>
-                    <button class="calc-btn" onclick="calcNum('.')">.</button>
-                    <button class="calc-btn eq" onclick="calcAction('equals')">=</button>
-                </div>
+                <div class="calc-panel-title">Calculadora</div>
+                <p class="calc-panel-sub">Digite a expressão inteira, com parênteses e funções de probabilidade. A mesma calculadora abre pelo botão no canto da tela, sem sair do exercício.</p>
+                <div id="calcTabMount"></div>
             </div>
         </section>
 
@@ -5439,6 +5464,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
             dynCur[key] = g;
             const sc = dynScore[key] || { ok: 0, tot: 0 };
             const el = document.getElementById('dyn_' + id);
+            const keepScratch = el.querySelector('.scratch');
             const answer = g.mc
                 ? `<div class="dyn-options">${g.order.map(i => `<label class="dyn-opt"><input type="radio" name="dynMc_${id}" value="${i}"> <span>${g.opts[i]}</span></label>`).join('')}</div>
                    <div class="dyn-answer">`
@@ -5448,6 +5474,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
             el.innerHTML = `
                 <div class="dyn-head"><span>Exercício ${key} • ${g.t}</span><span class="dyn-score">Acertos: ${sc.ok}/${sc.tot}</span></div>
                 <div class="exercise-enunciado">${g.q}</div>
+                <div class="scratch-slot"></div>
                 ${answer}
                     <button class="toggle-solution-btn" onclick="checkDyn('${key}')">Verificar</button>
                     <button class="toggle-solution-btn" onclick="document.getElementById('dynSol_${id}').classList.toggle('open')">Solução</button>
@@ -5456,6 +5483,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
                 <div class="dyn-feedback" id="dynFb_${id}"></div>
                 <div class="solution-drawer" id="dynSol_${id}">${g.s}<p><strong>Resposta:</strong> ${answerText(g)}</p></div>`;
             mathIn(el);
+            el.querySelector('.scratch-slot').replaceWith(keepScratch || scratchEl('dyn:' + key));
         }
         function checkDyn(key) {
             const g = dynCur[key], id = subId(key), fb = document.getElementById('dynFb_' + id);
@@ -5539,6 +5567,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
         // Initialize App
         document.addEventListener('DOMContentLoaded', () => {
             renderSidebar();
+            mountCalcs();
             renderModules();
             initMath();
             initAnimated();
@@ -5564,6 +5593,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
         // Tab Navigation
         function switchTab(tabId) {
             currentTab = tabId;
+            document.body.dataset.tab = tabId;
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
@@ -5680,6 +5710,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
                             <div class="exercise-item">
                                 <div class="exercise-title">${ex.title}</div>
                                 <div class="exercise-enunciado">${ex.enunciado}</div>
+                                ${scratchHtml('fix:' + ex.id)}
                                 
                                 <button class="toggle-solution-btn" onclick="toggleSolution('sol_${ex.id}', this)">
                                     <span>Ver Solução Comentada</span>
@@ -5693,6 +5724,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
                     </div>
                 </article>
             `).join('');
+            container.querySelectorAll('.scratch').forEach(scratchInit);
             Object.keys(SUBEX).forEach(key => newDyn(key));
         }
 
@@ -5713,6 +5745,9 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
 
         // ================= SIMULADO / PROVA ENGINE =================
         function startExam() {
+            // Prova nova: rascunhos da prova anterior saem.
+            try { Object.keys(localStorage).filter(k => k.startsWith('scr:exam:')).forEach(k => localStorage.removeItem(k)); } catch (e) { }
+            document.getElementById('examScratch').innerHTML = '';
             EXAM_QUESTIONS = buildRandomExam();
             examState.status = 'running';
             document.getElementById('examWelcomeScreen').style.display = 'none';
@@ -5839,6 +5874,8 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
             `).join('');
 
             // Navigation button disabled state
+            const scr = document.getElementById('examScratch');
+            if (!scr.firstElementChild || scr.firstElementChild.dataset.key !== 'exam:' + index) { scr.innerHTML = ''; scr.appendChild(scratchEl('exam:' + index)); }
             document.getElementById('btnPrevQ').disabled = (index === 0);
             document.getElementById('btnNextQ').disabled = (index === EXAM_QUESTIONS.length - 1);
 
@@ -6177,59 +6214,223 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
             }
         }
 
-        // ================= CALCULADORA =================
-        let calcVal = '0';
-        let calcExpr = '';
-
-        function updateCalcDisplay() {
-            document.getElementById('calcMain').textContent = calcVal;
-            document.getElementById('calcSub').textContent = calcExpr;
+        // ================= CALCULADORA E RASCUNHO =================
+        // Avaliador de expressões próprio (sem eval): + - × ÷ ^ ! %, parênteses, variáveis e funções de probabilidade.
+        const CALC_FN = {
+            sqrt: x => Math.sqrt(x), raiz: x => Math.sqrt(x), ln: x => Math.log(x), log: x => Math.log10(x), exp: x => Math.exp(x), abs: x => Math.abs(x),
+            round: (x, d = 0) => +x.toFixed(d),
+            fact: n => calcFact(n), C: (n, k) => comb(n, k), A: (n, k) => calcFact(n) / calcFact(n - k),
+            Phi: z => Phi(z), invPhi: p => invPhi(p), phi: z => npdf(z),
+            binom: (n, p, k) => comb(n, k) * p ** k * (1 - p) ** (n - k),
+            pois: (l, k) => Math.exp(-l) * l ** k / calcFact(k),
+            expo: (l, x) => 1 - Math.exp(-l * x)
+        };
+        function calcFact(n) {
+            if (n < 0 || n > 170 || n !== Math.floor(n)) throw new Error('fatorial');
+            let f = 1; for (let i = 2; i <= n; i++) f *= i; return f;
         }
-
-        function calcNum(n) {
-            if (calcVal === '0' && n !== '.') {
-                calcVal = n;
-            } else {
-                calcVal += n;
-            }
-            updateCalcDisplay();
-        }
-
-        function calcAction(act) {
-            try {
-                if (act === 'clear') {
-                    calcVal = '0';
-                    calcExpr = '';
-                } else if (act === 'backspace') {
-                    if (calcVal.length > 1) calcVal = calcVal.slice(0, -1);
-                    else calcVal = '0';
-                } else if (act === 'equals') {
-                    calcExpr += calcVal;
-                    calcVal = String(eval(calcExpr));
-                    calcExpr = '';
-                } else if (['+', '-', '*', '/'].includes(act)) {
-                    calcExpr = calcVal + ' ' + act + ' ';
-                    calcVal = '0';
-                } else if (act === 'sqrt') {
-                    calcVal = String(Math.sqrt(parseFloat(calcVal)));
-                } else if (act === 'sqr') {
-                    calcVal = String(Math.pow(parseFloat(calcVal), 2));
-                } else if (act === 'exp') {
-                    calcVal = String(Math.exp(parseFloat(calcVal)));
-                } else if (act === 'ln') {
-                    calcVal = String(Math.log(parseFloat(calcVal)));
-                } else if (act === 'fact') {
-                    const n = parseInt(calcVal);
-                    if (n >= 0 && n <= 170) {
-                        let f = 1;
-                        for (let i = 2; i <= n; i++) f *= i;
-                        calcVal = String(f);
-                    }
+        function calcEval(src, vars = {}) {
+            let s = String(src).replace(/[×·]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-').replace(/π/g, 'pi').replace(/√/g, 'sqrt').replace(/Φ⁻¹/g, 'invPhi').replace(/Φ/g, 'Phi');
+            // Vírgula decimal (0,5) só quando não há chamada de função, onde a vírgula separa argumentos.
+            if (!/[A-Za-z]\s*\(/.test(s)) s = s.replace(/(\d),(\d)/g, '$1.$2');
+            let i = 0;
+            const peek = () => { while (s[i] === ' ') i++; return s[i]; };
+            const fail = () => { throw new Error('expressão'); };
+            const expr = () => { let v = term(); for (;;) { const c = peek(); if (c === '+') { i++; v += term(); } else if (c === '-') { i++; v -= term(); } else return v; } };
+            const term = () => { let v = unary(); for (;;) { const c = peek(); if (c === '*') { i++; v *= unary(); } else if (c === '/') { i++; v /= unary(); } else return v; } };
+            const unary = () => { const c = peek(); if (c === '-') { i++; return -unary(); } if (c === '+') { i++; return unary(); } return power(); };
+            const power = () => { const b = postfix(); if (peek() === '^') { i++; return b ** unary(); } return b; };
+            const postfix = () => { let v = atom(); for (;;) { const c = peek(); if (c === '!') { i++; v = calcFact(v); } else if (c === '%') { i++; v /= 100; } else return v; } };
+            const atom = () => {
+                if (peek() === '(') { i++; const v = expr(); if (peek() !== ')') fail(); i++; return v; }
+                let m = /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(s.slice(i));
+                if (m) { i += m[0].length; return parseFloat(m[0]); }
+                m = /^[A-Za-z_]\w*/.exec(s.slice(i));
+                if (!m) fail();
+                i += m[0].length;
+                const name = m[0];
+                if (peek() === '(') {
+                    const f = CALC_FN[name] || CALC_FN[name.toLowerCase()];
+                    if (!f) fail();
+                    i++;
+                    const args = [];
+                    if (peek() !== ')') { args.push(expr()); while (peek() === ',' || peek() === ';') { i++; args.push(expr()); } }
+                    if (peek() !== ')') fail();
+                    i++;
+                    return f(...args);
                 }
-            } catch (e) {
-                calcVal = 'Erro';
-            }
-            updateCalcDisplay();
+                if (Object.prototype.hasOwnProperty.call(vars, name) && vars[name] !== undefined) return vars[name];
+                if (name === 'pi') return Math.PI;
+                if (name === 'e') return Math.E;
+                fail();
+            };
+            const v = expr();
+            if (peek() !== undefined || typeof v !== 'number' || !isFinite(v)) fail();
+            return v;
+        }
+        const calcFmt = v => Number.isInteger(v) && Math.abs(v) < 1e15 ? String(v)
+            : (Math.abs(v) >= 1e-6 && Math.abs(v) < 1e15 ? String(+v.toPrecision(10)) : v.toExponential(6));
+        const storeGet = k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+        const storeSet = (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) { } };
+
+        // ---------- Rascunho: uma conta por linha, resultado ao lado; "a = ..." guarda o valor em a ----------
+        let lastScratch = null;
+        const scratchHtml = key => `<div class="scratch" data-key="${key}">
+            <div class="scratch-bar"><span class="scratch-title">Rascunho</span><span class="scratch-hint">Uma conta por linha, com o resultado à direita. Use <code>a = 0.9^3</code> para guardar um valor e <code>1 - a</code> depois.</span>
+            <span class="scratch-actions"><button type="button" class="scratch-btn" data-act="calc">Calculadora</button><button type="button" class="scratch-btn" data-act="clear">Limpar</button></span></div>
+            <div class="scratch-body"><textarea spellcheck="false" wrap="off" aria-label="Rascunho de cálculo" placeholder="Ex.: C(5,2) * 0.1^2 * 0.9^3"></textarea><div class="scratch-out" aria-live="polite"></div></div>
+        </div>`;
+        function scratchEl(key) { const t = document.createElement('template'); t.innerHTML = scratchHtml(key).trim(); const el = t.content.firstChild; scratchInit(el); return el; }
+        function scratchRun(box) {
+            const ta = box.querySelector('textarea'), vars = {};
+            let ans;
+            const out = ta.value.split('\n').map(line => {
+                const t = line.replace(/#.*/, '').trim();
+                if (!t) return '';
+                const m = /^([A-Za-z_]\w*)\s*=(?!=)\s*(.+)$/.exec(t);
+                const name = m && !CALC_FN[m[1]] && m[1] !== 'pi' && m[1] !== 'e' ? m[1] : null;
+                const tries = name ? [m[2]] : [t, ...(t.includes('=') ? [t.slice(0, t.indexOf('=')), t.slice(t.lastIndexOf('=') + 1)] : [])];
+                for (const ex of tries) {
+                    try {
+                        const v = calcEval(ex, { ...vars, ans });
+                        if (name) vars[name] = v;
+                        ans = v;
+                        const f = calcFmt(v);
+                        return f === ex.trim() ? '' : (name ? `${name} = ${f}` : `= ${f}`);
+                    } catch (e) { }
+                }
+                return '';
+            });
+            box.querySelector('.scratch-out').textContent = out.join('\n');
+            ta.rows = Math.max(3, ta.value.split('\n').length + 1);
+        }
+        function scratchInit(box) {
+            if (box.dataset.ok) return;
+            box.dataset.ok = '1';
+            box.querySelector('textarea').value = storeGet('scr:' + box.dataset.key);
+            scratchRun(box);
+        }
+        document.addEventListener('input', e => {
+            const box = e.target.closest && e.target.closest('.scratch');
+            if (!box || e.target.tagName !== 'TEXTAREA') return;
+            scratchRun(box);
+            storeSet('scr:' + box.dataset.key, e.target.value);
+        });
+        document.addEventListener('focusin', e => { const box = e.target.closest && e.target.closest('.scratch'); if (box) lastScratch = box; });
+        document.addEventListener('click', e => {
+            const b = e.target.closest('.scratch-btn');
+            if (!b) return;
+            const box = b.closest('.scratch');
+            lastScratch = box;
+            if (b.dataset.act === 'clear') { box.querySelector('textarea').value = ''; storeSet('scr:' + box.dataset.key, ''); scratchRun(box); }
+            else openCalc();
+        });
+
+        // ---------- Calculadora: a mesma peça na aba Calculadora e no painel flutuante ----------
+        const CALC_KEYS = [
+            ['7'], ['8'], ['9'], ['÷', '/'], ['(', '('], [')', ')'],
+            ['4'], ['5'], ['6'], ['×', '*'], ['xʸ', '^'], ['n!', '!'],
+            ['1'], ['2'], ['3'], ['−', '-'], ['√', 'sqrt('], ['ln', 'ln('],
+            ['0'], ['.'], [',', ','], ['+'], ['eˣ', 'exp('], ['π', 'pi'],
+            ['C(n,k)', 'C(', 'fn'], ['A(n,k)', 'A(', 'fn'], ['Φ(z)', 'Phi(', 'fn'], ['Φ⁻¹(p)', 'invPhi(', 'fn'], ['binom', 'binom(', 'fn'], ['pois', 'pois(', 'fn'],
+            ['C', 'clear', 'act'], ['⌫', 'back', 'act'], ['ans', 'ans'], ['→ rascunho', 'send', 'act'], ['=', 'eq', 'eq']
+        ];
+        const calcHtml = () => `<div class="calcw">
+            <div class="calcw-hist" aria-label="Histórico"></div>
+            <input class="calcw-in" type="text" autocomplete="off" spellcheck="false" aria-label="Expressão" placeholder="Ex.: C(10,3) * 0.2^3 * 0.8^7">
+            <div class="calcw-res" aria-live="polite">&nbsp;</div>
+            <div class="calcw-keys">${CALC_KEYS.map(([l, v = l, k = '']) => `<button type="button" class="calcw-k ${k}" data-v="${v}" data-k="${k}">${l}</button>`).join('')}</div>
+            <details class="calcw-help"><summary>Funções e atalhos</summary>
+                <ul>
+                    <li><code>C(n,k)</code> combinações; <code>A(n,k)</code> arranjos; <code>5!</code> fatorial</li>
+                    <li><code>Phi(z)</code> = $\Phi(z)$, área à esquerda na normal padrão; <code>invPhi(p)</code> = $z_p$; <code>phi(z)</code> densidade</li>
+                    <li><code>binom(n,p,k)</code> = $P(X=k)$ na binomial; <code>pois(λ,k)</code> na Poisson; <code>expo(λ,x)</code> = $1-e^{-\lambda x}$</li>
+                    <li><code>sqrt</code>, <code>ln</code>, <code>log</code> (base 10), <code>exp</code>, <code>abs</code>, <code>round(x,d)</code>, <code>pi</code>, <code>e</code>, <code>ans</code> (último resultado), <code>12%</code> = 0.12</li>
+                    <li>Enter calcula. Setas ↑ ↓ percorrem o histórico. Clique num resultado do histórico para reutilizá-lo.</li>
+                </ul>
+            </details>
+        </div>`;
+        function calcInit(root) {
+            const inp = root.querySelector('.calcw-in'), res = root.querySelector('.calcw-res'), hist = root.querySelector('.calcw-hist');
+            let ans, past = [], pos = 0;
+            const preview = () => {
+                const t = inp.value.trim();
+                if (!t) { res.innerHTML = '&nbsp;'; res.className = 'calcw-res'; return; }
+                try { res.textContent = '= ' + calcFmt(calcEval(t, { ans })); res.className = 'calcw-res'; }
+                catch (e) { res.textContent = 'expressão incompleta'; res.className = 'calcw-res bad'; }
+            };
+            const insert = v => {
+                const a = inp.selectionStart ?? inp.value.length, b = inp.selectionEnd ?? a;
+                inp.value = inp.value.slice(0, a) + v + inp.value.slice(b);
+                inp.setSelectionRange(a + v.length, a + v.length);
+                preview();
+            };
+            const run = () => {
+                const t = inp.value.trim();
+                if (!t) return;
+                let v;
+                try { v = calcEval(t, { ans }); } catch (e) { res.textContent = 'Não entendi a expressão'; res.className = 'calcw-res bad'; return; }
+                ans = v;
+                past.push(t); pos = past.length;
+                const row = document.createElement('div');
+                row.className = 'calcw-row';
+                row.innerHTML = `<span class="calcw-e"></span><button type="button" class="calcw-v" title="Usar este resultado"></button>`;
+                row.firstChild.textContent = t;
+                row.lastChild.textContent = calcFmt(v);
+                hist.appendChild(row);
+                hist.scrollTop = hist.scrollHeight;
+                inp.value = '';
+                res.textContent = '= ' + calcFmt(v);
+                res.className = 'calcw-res';
+            };
+            const send = () => {
+                const t = inp.value.trim() || (past.length ? past[past.length - 1] : '');
+                if (!t) return;
+                const box = lastScratch && document.body.contains(lastScratch) ? lastScratch : null;
+                if (!box) { res.textContent = 'Clique antes num rascunho de exercício'; res.className = 'calcw-res bad'; return; }
+                const ta = box.querySelector('textarea');
+                ta.value = ta.value.replace(/\n*$/, '') + (ta.value.trim() ? '\n' : '') + t;
+                storeSet('scr:' + box.dataset.key, ta.value);
+                scratchRun(box);
+                res.textContent = 'Enviado ao rascunho';
+                res.className = 'calcw-res';
+            };
+            inp.addEventListener('input', preview);
+            inp.addEventListener('keydown', e => {
+                if (e.key === 'Enter') { e.preventDefault(); run(); }
+                else if (e.key === 'ArrowUp' && past.length) { e.preventDefault(); pos = Math.max(0, pos - 1); inp.value = past[pos]; preview(); }
+                else if (e.key === 'ArrowDown' && past.length) { e.preventDefault(); pos = Math.min(past.length, pos + 1); inp.value = past[pos] || ''; preview(); }
+            });
+            hist.addEventListener('click', e => { const b = e.target.closest('.calcw-v'); if (b) { insert(b.textContent); inp.focus(); } });
+            root.querySelector('.calcw-keys').addEventListener('click', e => {
+                const b = e.target.closest('.calcw-k');
+                if (!b) return;
+                const { v, k } = b.dataset;
+                if (v === 'eq') run();
+                else if (v === 'clear') { inp.value = ''; preview(); }
+                else if (v === 'back') { const a = inp.selectionStart ?? inp.value.length; if (a > 0) { inp.value = inp.value.slice(0, a - 1) + inp.value.slice(a); inp.setSelectionRange(a - 1, a - 1); } preview(); }
+                else if (v === 'send') send();
+                else insert(v);
+                if (matchMedia('(pointer: fine)').matches) inp.focus();
+            });
+        }
+        function openCalc() {
+            const p = document.getElementById('calcFloat');
+            p.hidden = false;
+            document.getElementById('calcFab').setAttribute('aria-expanded', 'true');
+            p.querySelector('.calcw-in').focus();
+        }
+        function toggleCalc() {
+            const p = document.getElementById('calcFloat');
+            if (p.hidden) openCalc();
+            else { p.hidden = true; document.getElementById('calcFab').setAttribute('aria-expanded', 'false'); }
+        }
+        function mountCalcs() {
+            document.getElementById('calcTabMount').innerHTML = calcHtml();
+            document.getElementById('calcFloatMount').innerHTML = calcHtml();
+            document.querySelectorAll('.calcw').forEach(calcInit);
+            mathIn(document.getElementById('calcTabMount'));
+            mathIn(document.getElementById('calcFloatMount'));
         }
 
         // ================= APOSTILA ANIMADA =================
