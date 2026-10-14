@@ -1682,6 +1682,27 @@
         @media (max-width: 1024px) { .sub-nav { display: none !important; } }
         @media (max-width: 640px) { .theory-section { font-size: 1rem; line-height: 1.75; } .theory-section h3[id] { font-size: 1.25rem; margin-top: 2.5rem; padding-top: 1.75rem; } }
         @media (max-width: 700px) { .module-body h3[id] { scroll-margin-top: 150px; } }
+        /* Equações de referência (simulado e treino) */
+        .ref-eq { border: 1px solid #a5f3fc; border-left: 4px solid #0e7490; background: #ecfeff; border-radius: var(--radius-md); padding: 0.6rem 1rem; margin-bottom: 1.25rem; }
+        .ref-eq summary { cursor: pointer; font-weight: 700; font-size: 0.85rem; color: #0e7490; text-transform: uppercase; letter-spacing: 0.03em; }
+        .ref-eq dl { margin: 0.5rem 0 0; display: grid; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: 0.15rem 1rem; align-items: center; }
+        .ref-eq dt { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+        .ref-eq dd { margin: 0; min-width: 0; }
+        .ref-eq .katex-display { margin: 0.35rem 0; text-align: left; }
+        .ref-eq .katex-display > .katex { text-align: left; }
+        @media (max-width: 640px) { .ref-eq dl { grid-template-columns: minmax(0, 1fr); } .ref-eq dt { margin-top: 0.4rem; } }
+        /* Treino guiado */
+        .train-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; margin-bottom: 0.75rem; }
+        .train-bar select { width: auto; max-width: 100%; }
+        .train-opt { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: var(--text-muted); cursor: pointer; }
+        .train-score { margin-left: auto; font-weight: 700; color: var(--text-strong); }
+        #tabContentTreino .progress-bar-container { margin-bottom: 1.25rem; }
+        .train-step { font-size: 0.85rem; color: var(--primary-light); font-weight: 700; margin-bottom: 0.75rem; }
+        .train-link { font-size: 0.85rem; font-weight: 600; color: var(--primary); }
+        #trainBox .scratch { margin: 1rem 0; }
+        #trainBox .question-nav-actions { flex-wrap: wrap; gap: 0.5rem; }
+        .option-label.correct { border-color: var(--success); background: rgba(16, 185, 129, 0.12); box-shadow: 0 0 0 1px var(--success); }
+        .option-label.wrong { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 0 1px var(--danger); }
     </style>
 </head>
 <body>
@@ -1709,6 +1730,10 @@
             <button class="tab-btn" id="tabBtnSimulado" onclick="switchTab('simulado')">
                 <span>Simulado / Prova</span>
                 <span class="tab-badge">3 Horas</span>
+            </button>
+            <button class="tab-btn" id="tabBtnTreino" onclick="switchTab('treino')">
+                <span>Treino Guiado</span>
+                <span class="tab-badge">74 Tópicos</span>
             </button>
             <button class="tab-btn" id="tabBtnTabelas" onclick="switchTab('tabelas')">
                 <span>Formulário & Tabelas</span>
@@ -1813,6 +1838,7 @@
                             QUESTÃO <span id="currentQuestionNum">1</span> DE 27
                         </div>
 
+                        <div id="questionRef"></div>
                         <div class="question-text" id="questionText">
                             <!-- Question text -->
                         </div>
@@ -1954,6 +1980,19 @@
         </section>
 
         <!-- ================= TAB 3: TABELAS & FORMULÁRIO ================= -->
+        <!-- ================= TAB: TREINO GUIADO ================= -->
+        <section id="tabContentTreino" class="tab-content">
+            <div class="exam-container">
+                <div class="train-bar">
+                    <select id="trainModule" class="search-box" onchange="trainStart()"><option value="0">Todos os módulos</option><option value="1">1. Probabilidade Fundamental</option><option value="2">2. Variáveis Aleatórias Discretas</option><option value="3">3. Modelos Discretos (Binomial, Poisson)</option><option value="4">4. Variáveis Aleatórias Contínuas</option><option value="5">5. Modelos Contínuos (Normal, Exponencial)</option><option value="6">6. Estatística Descritiva</option><option value="7">7. Estimação e Teorema Central do Limite</option><option value="8">8. Testes de Hipótese</option><option value="9">9. Controle Estatístico de Processo (CEP)</option></select>
+                    <label class="train-opt"><input type="checkbox" id="trainShuffle" onchange="trainStart()"> Ordem aleatória</label>
+                    <span class="train-score" id="trainScore"></span>
+                </div>
+                <div class="progress-bar-container" role="progressbar" aria-label="Tópicos percorridos"><div class="progress-fill high" id="trainFill" style="width:0%;"></div></div>
+                <div class="question-box" id="trainBox"></div>
+            </div>
+        </section>
+
         <section id="tabContentTabelas" class="tab-content">
             <div class="tables-layout">
                 
@@ -6568,6 +6607,343 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
             if (!ok) document.getElementById('dynSol_' + id).classList.add('open');
         }
 
+        // ================= EQUAÇÕES DE REFERÊNCIA POR SUBTÓPICO =================
+        // Formulário base de cada subtópico, mostrado junto das questões do simulado e do treino. Uma linha por equação: "rótulo | LaTeX".
+        const REF_SRC = RAW`
+#1.1
+Probabilidade clássica | P(A) = \frac{\#A}{\#\Omega}
+Complemento | P(A^c) = 1 - P(A)
+Axiomas | 0 \le P(A) \le 1, \quad P(\Omega) = 1
+#1.2
+Regra da adição | P(A \cup B) = P(A) + P(B) - P(A \cap B)
+Nenhum dos dois | P(A^c \cap B^c) = 1 - P(A \cup B)
+Só A | P(A \cap B^c) = P(A) - P(A \cap B)
+#1.3
+Condicional | P(B \mid A) = \frac{P(A \cap B)}{P(A)}
+Multiplicação | P(A \cap B) = P(A)\,P(B \mid A)
+Em cadeia | P(A_1 \cap A_2 \cap A_3) = P(A_1)\,P(A_2 \mid A_1)\,P(A_3 \mid A_1 \cap A_2)
+#1.4
+Independência | P(A \cap B) = P(A)\,P(B) \iff P(B \mid A) = P(B)
+Pelo menos um | P(\text{pelo menos um}) = 1 - \prod_i (1 - p_i)
+Disjuntos ≠ independentes | A \cap B = \varnothing \implies P(A \cap B) = 0
+#1.5
+Probabilidade total | P(D) = \sum_i P(F_i)\,P(D \mid F_i)
+Partição | \sum_i P(F_i) = 1, \quad F_i \cap F_j = \varnothing
+#1.6
+Probabilidade total | P(+) = P(D)P(+ \mid D) + P(D^c)P(+ \mid D^c)
+Bayes | P(D \mid +) = \frac{P(D)\,P(+ \mid D)}{P(+)}
+Complementos | P(D^c) = 1 - P(D), \quad P(- \mid D) = 1 - P(+ \mid D)
+#1.7
+Série | R_{série} = \prod_i R_i
+Paralelo | R_{par} = 1 - \prod_i (1 - R_i)
+Misto | R_{sis} = R_{par} \cdot R_{série}
+#1.8
+Combinação | \binom{n}{k} = \frac{n!}{k!\,(n-k)!}
+Hipergeométrica | P(X = k) = \frac{\binom{D}{k}\binom{N-D}{n-k}}{\binom{N}{n}}
+#1.9
+Conjunta | P(A \cap B) = \frac{n_{A \cap B}}{N}
+Marginal | P(A) = \frac{n_A}{N}
+Condicional na tabela | P(A \mid B) = \frac{n_{A \cap B}}{n_B}
+#1.10
+Bayes | P(D \mid E) = \frac{P(D)\,P(E \mid D)}{P(D)\,P(E \mid D) + P(D^c)\,P(E \mid D^c)}
+Testes independentes | P(+ + \mid D) = P(+ \mid D)^2
+Atualização | \text{posterior de um teste} = \text{priori do seguinte}
+#2.1
+Função de probabilidade | p(x) = P(\{\omega : X(\omega) = x\})
+Propriedades | p(x) \ge 0, \quad \sum_x p(x) = 1
+Média | E[X] = \sum_x x\,p(x)
+#2.2
+Normalização | \sum_x p(x) = 1
+Probabilidade de um intervalo | P(a \le X \le b) = \sum_{x=a}^{b} p(x)
+#2.3
+Distribuição acumulada | F(x) = P(X \le x) = \sum_{t \le x} p(t)
+Intervalo | P(a < X \le b) = F(b) - F(a)
+Ponto | p(x) = F(x) - F(x^-)
+#2.4
+Esperança | E[X] = \sum_x x\,p(x)
+Função de X | E[g(X)] = \sum_x g(x)\,p(x)
+Linearidade | E[aX + b] = a\,E[X] + b
+#2.5
+Variância | Var(X) = E[X^2] - (E[X])^2
+Segundo momento | E[X^2] = \sum_x x^2\,p(x)
+Transformação linear | Var(aX + b) = a^2\,Var(X), \quad \sigma_{aX+b} = |a|\,\sigma_X
+#2.6
+Percentil | x_p = \min\{x : F(x) \ge p\}
+Mediana | Md = x_{0.5}
+#2.7
+Soma | E[X + Y] = E[X] + E[Y]
+Independentes | Var(X \pm Y) = Var(X) + Var(Y)
+Geral | Var(X + Y) = Var(X) + Var(Y) + 2\,Cov(X, Y)
+#2.8
+Função de X | E[g(X)] = \sum_x g(x)\,p(x)
+Atenção | E[g(X)] \ne g(E[X]) \text{ se } g \text{ não é linear}
+Mínimo | E[\min(X, s)] = \sum_x \min(x, s)\,p(x)
+#3.1
+Uniforme discreta | P(X = x) = \frac{1}{k}, \quad k = b - a + 1
+Média | E[X] = \frac{a + b}{2}
+Variância | Var(X) = \frac{k^2 - 1}{12}
+#3.2
+Binomial | P(X = k) = \binom{n}{k}p^k(1-p)^{n-k}
+Momentos | E[X] = np, \quad Var(X) = np(1-p)
+Complemento | P(X \ge 1) = 1 - (1-p)^n
+#3.3
+Poisson | P(X = k) = \frac{e^{-\mu}\mu^k}{k!}
+Taxa no intervalo | \mu = \lambda t
+Momentos | E[X] = Var(X) = \mu
+#3.4
+Aproximação | \lambda = np \quad (n \text{ grande}, p \text{ pequeno})
+Poisson | P(X = k) \approx \frac{e^{-\lambda}\lambda^k}{k!}
+#3.5
+Binomial | n \text{ ensaios fixos, sucesso com } p \text{ constante}
+Poisson | \text{contagem em intervalo, taxa } \lambda \text{ constante}
+Hipergeométrica | \text{amostra sem reposição de lote finito}
+#3.6
+Pelo menos um | P(X \ge 1) = 1 - (1 - p)^n
+Tamanho mínimo | n \ge \frac{\ln(1 - c)}{\ln(1 - p)}
+#3.7
+Zero eventos | P(X = 0) = e^{-\mu} \implies \mu = -\ln P(X = 0)
+Taxa | \lambda = \mu / t
+Poisson | P(X = k) = \frac{e^{-\mu}\mu^k}{k!}
+#4.1
+Ponto tem probabilidade nula | P(X = c) = 0
+Intervalo | P(a \le X \le b) = P(a < X < b) = \int_a^b f(x)\,dx
+Densidade | f(x) \ge 0, \quad \int_{-\infty}^{\infty} f(x)\,dx = 1
+#4.2
+Normalização | \int_{-\infty}^{\infty} f(x)\,dx = 1
+Probabilidade | P(a < X < b) = \int_a^b f(x)\,dx
+Potência | \int_0^c x^k\,dx = \frac{c^{k+1}}{k+1}
+#4.3
+Acumulada | F(x) = \int_{-\infty}^{x} f(t)\,dt
+Intervalo | P(a < X \le b) = F(b) - F(a)
+Densidade | f(x) = F'(x)
+#4.4
+Esperança | E[X] = \int x\,f(x)\,dx
+Segundo momento | E[X^2] = \int x^2 f(x)\,dx
+Variância | Var(X) = E[X^2] - (E[X])^2
+#4.5
+Mediana | F(Md) = \int_{-\infty}^{Md} f(x)\,dx = 0.5
+Percentil | F(x_p) = p
+#4.6
+Cauda | P(X > c) = 1 - F(c)
+Percentil | F(x_p) = p \implies x_p = F^{-1}(p)
+Densidade | f(x) = F'(x)
+#4.7
+Quartis | F(Q_1) = 0.25, \quad F(Q_3) = 0.75
+Amplitude interquartil | AIQ = Q_3 - Q_1
+#5.1
+Uniforme contínua | f(x) = \frac{1}{b - a}, \quad a \le x \le b
+Intervalo | P(c < X < d) = \frac{d - c}{b - a}
+Momentos | E[X] = \frac{a + b}{2}, \quad Var(X) = \frac{(b - a)^2}{12}
+#5.2
+Regra empírica | P(|X - \mu| < k\sigma) \approx 0.6827,\ 0.9545,\ 0.9973 \quad (k = 1, 2, 3)
+Padronização | z = \frac{x - \mu}{\sigma}
+#5.3
+Padronização | z = \frac{x - \mu}{\sigma}
+Caudas | P(X \le x) = \Phi(z), \quad P(X > x) = 1 - \Phi(z)
+Intervalo | P(a < X < b) = \Phi(z_b) - \Phi(z_a)
+Simetria | \Phi(-z) = 1 - \Phi(z)
+#5.4
+Exponencial | f(t) = \lambda e^{-\lambda t}, \quad t \ge 0
+Acumulada | F(t) = 1 - e^{-\lambda t}
+Confiabilidade | R(t) = P(T > t) = e^{-\lambda t}, \quad MTTF = E[T] = \frac{1}{\lambda}
+#5.5
+Falta de memória | P(T > s + t \mid T > s) = P(T > t) = e^{-\lambda t}
+Média | E[T] = \frac{1}{\lambda}
+#5.6
+Percentil normal | x_p = \mu + z_p\,\sigma, \quad \Phi(z_p) = p
+Quantis usuais | z_{0.90} = 1.2816, \quad z_{0.95} = 1.6449, \quad z_{0.975} = 1.96
+#5.7
+Soma de normais independentes | \mu_T = \sum \mu_i, \quad \sigma_T^2 = \sum \sigma_i^2
+k parcelas iguais | \mu_T = k\mu, \quad \sigma_T = \sqrt{k}\,\sigma
+Diferença | \sigma_{X - Y}^2 = \sigma_X^2 + \sigma_Y^2
+#5.8
+Parâmetros | \mu = np, \quad \sigma = \sqrt{np(1-p)}
+Correção de continuidade | P(X \le k) \approx \Phi\left(\frac{k + 0.5 - \mu}{\sigma}\right)
+Validade | np \ge 5 \text{ e } n(1-p) \ge 5
+#5.9
+Série de exponenciais | \lambda_{sis} = \sum_i \lambda_i
+Confiabilidade | R_{sis}(t) = e^{-\lambda_{sis} t}
+Vida média | MTTF_{sis} = \frac{1}{\lambda_{sis}}
+#6.1
+Qualitativa | \text{nominal ou ordinal: barras, setores}
+Quantitativa | \text{discreta (contagem) ou contínua (medida): histograma, boxplot}
+#6.2
+Média | \bar{x} = \frac{\sum x_i}{n}
+Mediana | \tilde{x} = x_{\left(\frac{n+1}{2}\right)} \text{ (n ímpar)}, \quad \frac{x_{(n/2)} + x_{(n/2+1)}}{2} \text{ (n par)}
+Moda | \text{valor mais frequente}
+#6.3
+Desvio-padrão amostral | s = \sqrt{\frac{\sum (x_i - \bar{x})^2}{n - 1}}
+Forma de cálculo | s^2 = \frac{\sum x_i^2 - \frac{(\sum x_i)^2}{n}}{n - 1}
+Coeficiente de variação | CV = \frac{s}{\bar{x}}\times 100\%
+#6.4
+Amplitude interquartil | AIQ = Q_3 - Q_1
+Cercas de Tukey | L_I = Q_1 - 1.5\,AIQ, \quad L_S = Q_3 + 1.5\,AIQ
+#6.5
+Regra de Sturges | k = 1 + 3.322\log_{10} n
+Amplitude de classe | h = \left\lceil \frac{x_{max} - x_{min}}{k} \right\rceil
+Frequência relativa | f_r = \frac{f_i}{n}
+#6.6
+Média agrupada | \bar{x} \approx \frac{\sum f_i x_i}{n}
+Mediana agrupada | Md \approx L_i + \frac{\frac{n}{2} - F_{ant}}{f_{Md}}\cdot h
+#7.1
+Viés | \text{viés}(T) = E[T] - \theta
+Não viesado | E[T] = \theta
+Erro quadrático médio | EQM(T) = Var(T) + \text{viés}^2
+#7.2
+Erro-padrão da média | \sigma_{\bar X} = \frac{\sigma}{\sqrt n}
+Reduzir o erro f vezes | n' = f^2\,n
+#7.3
+Teorema central do limite | \bar X \approx N\left(\mu, \frac{\sigma^2}{n}\right)
+Padronização | z = \frac{\bar x - \mu}{\sigma/\sqrt n}
+Soma | \sum X_i \approx N(n\mu,\ n\sigma^2)
+#7.4
+IC para μ (σ conhecido) | \bar x \pm z_{\alpha/2}\frac{\sigma}{\sqrt n}
+Tamanho de amostra | n = \left(\frac{z_{\alpha/2}\,\sigma}{E}\right)^2
+IC para p | \hat p \pm z_{\alpha/2}\sqrt{\frac{\hat p(1 - \hat p)}{n}}
+Quantis | z_{0.05} = 1.645, \quad z_{0.025} = 1.96, \quad z_{0.005} = 2.576
+#7.5
+Variância de combinação | Var\left(\sum a_i X_i\right) = \sum a_i^2\,\sigma^2 \quad (\text{independentes})
+Média amostral | Var(\bar X) = \frac{\sigma^2}{n}
+Eficiência relativa | ef = \frac{Var(T_1)}{Var(T_2)}
+#7.6
+IC para μ (σ desconhecido) | \bar x \pm t_{\alpha/2;\,n-1}\frac{s}{\sqrt n}
+Graus de liberdade | gl = n - 1
+#7.7
+IC para σ² | \left[\frac{(n-1)s^2}{\chi^2_{\alpha/2;\,n-1}},\ \frac{(n-1)s^2}{\chi^2_{1-\alpha/2;\,n-1}}\right]
+IC para σ | \text{raiz dos extremos do IC de } \sigma^2
+#7.8
+Tamanho para proporção | n = \frac{z_{\alpha/2}^2\,\hat p(1 - \hat p)}{E^2}
+Sem estimativa prévia | \hat p = 0.5 \implies n = \frac{z_{\alpha/2}^2}{4E^2}
+#8.1
+Hipóteses | H_0: \mu = \mu_0 \quad \text{vs} \quad H_1: \mu \ne \mu_0,\ \mu > \mu_0,\ \mu < \mu_0
+Regra | \text{a afirmação a provar vai em } H_1
+#8.2
+Erro tipo I | \alpha = P(\text{rejeitar } H_0 \mid H_0 \text{ verdadeira})
+Erro tipo II | \beta = P(\text{não rejeitar } H_0 \mid H_0 \text{ falsa})
+Poder | 1 - \beta
+#8.3
+Decisão | p \le \alpha \implies \text{rejeita } H_0
+p-valor | p = P(\text{estatística tão extrema quanto a observada} \mid H_0)
+#8.4
+Teste z (σ conhecido) | z_{calc} = \frac{\bar x - \mu_0}{\sigma/\sqrt n}
+Teste t (σ desconhecido) | t_{calc} = \frac{\bar x - \mu_0}{s/\sqrt n}, \quad gl = n - 1
+Bilateral | |z_{calc}| > z_{\alpha/2} \implies \text{rejeita } H_0
+#8.5
+Esperado | E_i = N \cdot p_i
+Estatística | \chi^2 = \sum_i \frac{(O_i - E_i)^2}{E_i}
+Graus de liberdade | gl = k - 1 - (\text{parâmetros estimados})
+#8.6
+Unilateral à esquerda | p = \Phi(z)
+Unilateral à direita | p = 1 - \Phi(z)
+Bilateral | p = 2\left[1 - \Phi(|z|)\right]
+#8.7
+Teste para variância | \chi^2_{calc} = \frac{(n-1)s^2}{\sigma_0^2}, \quad gl = n - 1
+#8.8
+Proporção amostral | \hat p = \frac{x}{n}
+Teste para proporção | z_{calc} = \frac{\hat p - p_0}{\sqrt{p_0(1-p_0)/n}}
+#8.9
+Poder | 1 - \beta = P(\text{rejeitar } H_0 \mid \mu = \mu_1)
+O poder cresce com | n \uparrow, \quad \alpha \uparrow, \quad |\mu_1 - \mu_0| \uparrow, \quad \sigma \downarrow
+#8.10
+Taxa estimada | \hat\lambda = \frac{\sum k\,O_k}{n}
+Esperado | E_k = n\,\frac{e^{-\hat\lambda}\hat\lambda^k}{k!}
+Graus de liberdade | gl = k - 1 - 1
+#9.1
+Causas comuns | \text{variação natural, processo sob controle}
+Causas especiais | \text{ponto fora dos limites ou padrão não aleatório}
+#9.2
+Limites de Shewhart | LC = \mu_W, \quad LSC/LIC = \mu_W \pm 3\sigma_W
+Gráfico da média | \sigma_{\bar X} = \frac{\sigma}{\sqrt n}
+#9.3
+Gráfico x̄ | LSC/LIC = \bar{\bar x} \pm A_2\bar R
+Gráfico R | LSC_R = D_4\,\bar R, \quad LIC_R = D_3\,\bar R
+#9.4
+Gráfico p | \sigma_p = \sqrt{\frac{\bar p(1-\bar p)}{n}}
+Limites | LSC/LIC = \bar p \pm 3\sigma_p \quad (LIC \ge 0)
+#9.5
+Capacidade potencial | C_p = \frac{LSE - LIE}{6\sigma}
+Capacidade real | C_{pk} = \min\left(\frac{LSE - \mu}{3\sigma},\ \frac{\mu - LIE}{3\sigma}\right)
+Referência | C_{pk} \ge 1.33 \text{ (capaz)}
+#9.6
+Gráfico x̄ | LSC/LIC = \bar{\bar x} \pm A_3\bar s
+Gráfico s | LSC_S = B_4\,\bar s, \quad LIC_S = B_3\,\bar s
+#9.7
+σ pela amplitude | \hat\sigma = \frac{\bar R}{d_2}
+Capacidade | C_p = \frac{LSE - LIE}{6\hat\sigma}
+#9.8
+Gráfico np | n\bar p \pm 3\sqrt{n\bar p(1 - \bar p)}
+Gráfico c | \bar c \pm 3\sqrt{\bar c}
+#9.9
+Western Electric | 1 \text{ ponto além de } 3\sigma; \ 2 \text{ de } 3 \text{ além de } 2\sigma; \ 4 \text{ de } 5 \text{ além de } 1\sigma; \ 8 \text{ seguidos de um lado}
+Fases | \text{Fase I: estimar limites} \quad \text{Fase II: monitorar}
+`;
+        const REF = {};
+        REF_SRC.trim().split(/^#/m).filter(Boolean).forEach(b => { const [k, ...ls] = b.trim().split('\n'); REF[k] = ls.map(l => l.split(' | ')); });
+        const refHtml = sub => REF[sub] ? `<details class="ref-eq" open><summary>Equações de referência • ${sub}</summary><dl>${REF[sub].map(([t, f]) => `<dt>${t}</dt><dd>$$${f}$$</dd>`).join('')}</dl></details>` : '';
+
+        // ================= TREINO GUIADO =================
+        // Um subtópico por vez: equações de referência, problema no formato do simulado, correção na hora e solução.
+        let trainList = [], trainIdx = 0, trainCur = null, trainOk = 0, trainTot = 0;
+        function trainStart() {
+            const m = +document.getElementById('trainModule').value;
+            const keys = Object.keys(SUBEX).filter(k => !m || k.startsWith(m + '.'));
+            trainList = document.getElementById('trainShuffle').checked ? shuffle(keys) : keys;
+            trainIdx = 0; trainOk = trainTot = 0;
+            trainShow();
+        }
+        function trainShow() {
+            const key = trainList[trainIdx], m = +key.split('.')[0], id = subId(key);
+            const q = dynToQuestion(runSpec(pick(SUBEX[key])), m, key);
+            trainCur = { q, done: false };
+            const h3 = document.getElementById('s' + id);
+            const last = trainIdx === trainList.length - 1;
+            const box = document.getElementById('trainBox');
+            box.innerHTML = `
+                <div class="question-meta">
+                    <span class="question-module-badge">${MODULES_DATA[m - 1].short_title}</span>
+                    <a class="train-link" href="#s${id}" onclick="trainReview('${id}'); return false;">Rever ${key} na apostila</a>
+                </div>
+                <div class="train-step">TÓPICO ${trainIdx + 1} DE ${trainList.length} • ${key} ${h3 ? h3.innerHTML.replace(/<span class="sec-num">[^<]*<\/span>/, '') : ''}</div>
+                ${refHtml(key)}
+                <div class="question-text">${q.question}</div>
+                <div class="options-list">${shuffle(q.options.map((_, j) => j)).map((j, k) => `
+                    <label class="option-label" data-j="${j}" onclick="trainAnswer(${j})"><span class="option-text">${'ABCD'[k]}) ${q.options[j]}</span></label>`).join('')}
+                </div>
+                <div class="dyn-feedback" id="trainFb"></div>
+                <div class="solution-drawer" id="trainSol">${q.solution}</div>
+                <div class="scratch-slot"></div>
+                <div class="question-nav-actions">
+                    <button class="btn-nav" onclick="trainGo(-1)" ${trainIdx ? '' : 'disabled'}><span>← Anterior</span></button>
+                    <button class="btn-nav" onclick="trainShow()"><span>Outra deste tópico</span></button>
+                    <button class="btn-nav" onclick="${last ? 'trainStart()' : 'trainGo(1)'}"><span>${last ? 'Recomeçar' : 'Próxima →'}</span></button>
+                </div>`;
+            box.querySelector('.scratch-slot').replaceWith(scratchEl('train:' + key));
+            mathIn(box);
+            trainStatus();
+        }
+        function trainAnswer(j) {
+            if (trainCur.done) return;
+            trainCur.done = true;
+            const ok = j === trainCur.q.correct_index;
+            trainTot++; if (ok) trainOk++;
+            document.querySelectorAll('#trainBox .option-label').forEach(l => {
+                const lj = +l.dataset.j;
+                if (lj === trainCur.q.correct_index) l.classList.add('correct');
+                else if (lj === j) l.classList.add('wrong');
+            });
+            const fb = document.getElementById('trainFb');
+            fb.className = 'dyn-feedback ' + (ok ? 'ok' : 'bad');
+            fb.textContent = ok ? '✓ Correto!' : '✗ Não foi dessa vez. Veja a solução abaixo.';
+            document.getElementById('trainSol').classList.add('open');
+            trainStatus();
+        }
+        function trainGo(d) { trainIdx += d; trainShow(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        function trainReview(id) { switchTab('apostila'); setTimeout(() => document.getElementById('s' + id).scrollIntoView(), 400); }
+        function trainStatus() {
+            document.getElementById('trainScore').textContent = `Acertos: ${trainOk}/${trainTot}`;
+            document.getElementById('trainFill').style.width = `${(trainIdx + (trainCur.done ? 1 : 0)) / trainList.length * 100}%`;
+        }
+
         // ---------- Prova: 3 questões por módulo, de subtópicos distintos ----------
         function dynToQuestion(g, m, sub) {
             const base = { module_id: m, module_name: MODULES_DATA[m - 1].title, sub, question: `<strong>${g.t}.</strong> ${g.q}`, correct_index: 0, solution: g.s };
@@ -6660,19 +7036,10 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-            if (tabId === 'apostila') {
-                document.getElementById('tabBtnApostila').classList.add('active');
-                document.getElementById('tabContentApostila').classList.add('active');
-            } else if (tabId === 'simulado') {
-                document.getElementById('tabBtnSimulado').classList.add('active');
-                document.getElementById('tabContentSimulado').classList.add('active');
-            } else if (tabId === 'tabelas') {
-                document.getElementById('tabBtnTabelas').classList.add('active');
-                document.getElementById('tabContentTabelas').classList.add('active');
-            } else if (tabId === 'calc') {
-                document.getElementById('tabBtnCalc').classList.add('active');
-                document.getElementById('tabContentCalc').classList.add('active');
-            }
+            const cap = tabId[0].toUpperCase() + tabId.slice(1);
+            document.getElementById('tabBtn' + cap).classList.add('active');
+            document.getElementById('tabContent' + cap).classList.add('active');
+            if (tabId === 'treino' && !trainCur) trainStart();
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
             setTimeout(initMath, 50);
@@ -6914,6 +7281,7 @@ $$P(\text{8 acima}) = 0.5^8 = 0.0039$$
             document.getElementById('currentModuleBadge').textContent = q.module_name;
             document.getElementById('currentQuestionNum').textContent = index + 1;
             document.getElementById('questionText').innerHTML = q.question;
+            document.getElementById('questionRef').innerHTML = refHtml(q.sub);
 
             // Flag state
             const isFlagged = examState.flags[index];
